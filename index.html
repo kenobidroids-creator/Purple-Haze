@@ -3,672 +3,1326 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Schedule I: Open World</title>
+    <title>Schedule I: 16-Bit Edition</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
         * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
-
         body {
-            margin: 0; padding: 0; background-color: #080b06; color: #fff;
-            font-family: "Courier New", Courier, monospace;
+            margin: 0; padding: 0; background-color: #0b0f12; color: #fff;
+            font-family: 'VT323', monospace; letter-spacing: 1px;
             display: flex; justify-content: center; align-items: center;
             height: 100vh; overflow: hidden; touch-action: none;
         }
-
         #game-container {
             position: relative; width: 100%; max-width: 500px; height: 100%; max-height: 850px;
-            background: #1a2415; box-shadow: 0 0 20px rgba(0,0,0,0.8); overflow: hidden;
+            background: #000; box-shadow: 0 0 40px rgba(0,0,0,1); overflow: hidden;
         }
-
         canvas { display: block; width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
-
-        /* --- UI Overlay --- */
         #ui-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
-
         .top-bar {
-            position: absolute; top: 0; left: 0; right: 0; background: rgba(0, 0, 0, 0.95);
-            padding: 8px 12px; font-size: 11px; border-bottom: 2px solid #333;
-            display: flex; flex-direction: column; gap: 8px; font-weight: bold; pointer-events: auto; z-index: 10;
+            position: absolute; top: 0; left: 0; right: 0; background: rgba(8,12,18,0.97);
+            padding: 10px 15px; font-size: 18px; border-bottom: 1px solid #1a2a38;
+            display: flex; flex-direction: column; gap: 8px; pointer-events: auto; z-index: 10;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.8);
         }
-
         .top-row { display: flex; justify-content: space-between; align-items: center; }
-        .stats-text { color: #aaa; font-size: 10px; }
-        .highlight { color: #4CAF50; } .stash-text { color: #FF9800; } .water-text { color: #3498db; }
-        
+        .stats-text { color: #8fa1b3; font-size: 16px; }
+        .highlight { color: #63c74d; text-shadow: 0 0 8px rgba(99,199,77,0.5); }
+        .stash-text { color: #feae34; text-shadow: 0 0 8px rgba(254,174,52,0.4); }
+        .water-text { color: #2ce8f4; text-shadow: 0 0 8px rgba(44,232,244,0.4); }
         .ui-btn {
-            background: #222; color: white; border: 1px solid #555; padding: 5px 8px;
-            font-family: inherit; font-size: 10px; font-weight: bold; border-radius: 4px; cursor: pointer;
+            background: #1a2230; color: #8fa1b3; border: 1px solid #2a3848; border-bottom: 3px solid #080c14;
+            padding: 4px 10px; font-family: inherit; font-size: 14px; border-radius: 4px; cursor: pointer;
         }
-        .ui-btn:active { background: #444; }
-        #btn-phone { background: #004d40; border-color: #00897b; }
-        #btn-inv { background: #4a148c; border-color: #7b1fa2; }
-        #btn-reset { background: #8e0000; border-color: #e53935; }
-
+        .ui-btn:active { transform: translateY(2px); border-bottom: 1px solid #080c14; }
+        #btn-phone { background: #082838; border-color: #0a4860; color: #2ce8f4; }
+        #btn-inv { background: #201030; border-color: #4a2080; color: #c084fc; }
         #mission-tracker {
-            position: absolute; top: 75px; left: 10px; right: 10px; background: rgba(0, 30, 60, 0.9);
-            padding: 10px; border: 2px solid #00aaff; font-size: 11px; line-height: 1.4; transition: opacity 0.5s; z-index: 5;
+            position: absolute; top: 85px; left: 15px; right: 15px; background: rgba(6,14,28,0.92);
+            padding: 10px 14px; border: 1px solid #0a4060; border-radius: 6px; font-size: 16px; line-height: 1.3;
+            transition: opacity 0.5s; z-index: 5; box-shadow: 0 0 16px rgba(0,120,200,0.15);
         }
-
         #dialogue-box {
-            position: absolute; bottom: 130px; left: 10px; right: 10px; background: rgba(0, 0, 0, 0.95);
-            border: 2px solid #fff; padding: 12px; font-size: 12px; line-height: 1.4; min-height: 50px; 
-            transition: opacity 0.5s; z-index: 5; opacity: 0; pointer-events: none;
+            position: absolute; bottom: 130px; left: 15px; right: 15px; background: rgba(8,8,14,0.97);
+            border: 2px solid #c8a870; border-radius: 6px; padding: 14px; font-size: 18px; line-height: 1.3;
+            transition: opacity 0.3s; z-index: 5; opacity: 0; pointer-events: none;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.9);
         }
-
-        /* --- Touch Controls --- */
         #touch-controls {
             position: absolute; bottom: 0; left: 0; right: 0; height: 120px; pointer-events: auto;
-            display: flex; justify-content: space-between; align-items: center; padding: 0 20px; transition: opacity 0.2s;
+            display: flex; justify-content: space-between; align-items: center; padding: 0 30px;
         }
-        #joystick-area { position: relative; width: 100px; height: 100px; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 50%; }
-        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.7); border-radius: 50%; transform: translate(-50%, -50%); }
-        .circle-btn { width: 70px; height: 70px; border-radius: 50%; color: #fff; font-weight: bold; font-size: 11px; display: flex; justify-content: center; align-items: center; text-align: center; border: 2px solid rgba(255, 50, 50, 0.8); background: rgba(255, 50, 50, 0.4); pointer-events: auto; }
-        .circle-btn:active, .circle-btn.active { background: rgba(255, 50, 50, 0.8); }
-
-        /* --- Modals (Phone & Inventory) --- */
-        .modal {
-            position: absolute; top: 10%; left: 10%; right: 10%; bottom: 15%; background: #111;
-            border: 4px solid #333; border-radius: 15px; display: none; flex-direction: column; overflow: hidden;
-            pointer-events: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.9); z-index: 100;
+        #joystick-area {
+            position: relative; width: 110px; height: 110px;
+            background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.08); border-radius: 50%;
         }
-        
-        .modal-header { background: #222; padding: 10px; text-align: center; font-size: 12px; font-weight: bold; border-bottom: 2px solid #444; }
-        .modal-screen { flex: 1; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #0a0a0a; overflow-y: auto; }
-        .modal-close-btn { background: #222; padding: 12px; text-align: center; cursor: pointer; border-top: 2px solid #444; font-size: 12px; font-weight: bold;}
-        .modal-close-btn:active { background: #444; }
+        #joystick-stick {
+            position: absolute; top: 50%; left: 50%; width: 46px; height: 46px;
+            background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.55), rgba(180,180,180,0.2));
+            border-radius: 50%; transform: translate(-50%,-50%); box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+        }
+        .circle-btn {
+            width: 80px; height: 80px; border-radius: 50%; color: #fff; font-size: 15px;
+            display: flex; justify-content: center; align-items: center; text-align: center;
+            border: 2px solid #801020; pointer-events: auto;
+            background: radial-gradient(circle at 38% 28%, rgba(220,70,80,0.75), rgba(140,20,30,0.75));
+            box-shadow: 0 4px 0 #500010, 0 6px 20px rgba(200,50,60,0.25);
+        }
+        .circle-btn:active, .circle-btn.active { box-shadow: none; transform: translateY(4px); }
 
-        .app-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .app-icon { background: #333; border-radius: 12px; padding: 15px 5px; text-align: center; font-size: 11px; cursor: pointer; border: 2px solid transparent; }
-        .app-icon.store { background: #2e7d32; border-color: #4CAF50; }
-        .app-icon.locked { background: #444; color: #888; }
-        #store-view { display: none; flex-direction: column; height: 100%; justify-content: space-between; }
-        .store-item { background: #222; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #444; }
-        .action-btn { background: #4CAF50; color: white; border: none; padding: 10px; width: 100%; border-radius: 5px; font-weight: bold; margin-top: 10px; font-family: inherit; cursor: pointer;}
-        .action-btn:active { background: #388E3C; }
+        /* ===== PHONE MODAL ===== */
+        #phone-modal {
+            position: absolute; top: 4%; left: 7%; right: 7%; bottom: 7%;
+            background: #0c0c12; border-radius: 38px; display: none; flex-direction: column;
+            pointer-events: auto; z-index: 100; overflow: hidden;
+            box-shadow: 0 0 0 2px #252535, 0 0 0 5px #0a0a10, 0 40px 100px rgba(0,0,0,0.98),
+                        inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.5);
+        }
+        .phone-notch {
+            height: 26px; background: #0c0c12; display: flex; justify-content: center; align-items: center; flex-shrink: 0;
+        }
+        .phone-notch-pill { width: 88px; height: 9px; background: #1a1a26; border-radius: 9px; }
+        .phone-status {
+            padding: 2px 20px 8px; display: flex; justify-content: space-between; align-items: center;
+            font-size: 13px; color: #6a7a8a; flex-shrink: 0; background: #0c0c12;
+        }
+        .phone-status-right { display: flex; gap: 5px; align-items: center; }
+        .sig-bar { width: 4px; background: #5a8aaa; border-radius: 1px; }
+        .battery { width: 20px; height: 10px; border: 1px solid #5a7a8a; border-radius: 2px; position: relative; }
+        .battery::after { content:''; position:absolute; right:-4px; top:2px; width:3px; height:6px; background:#5a7a8a; border-radius:0 2px 2px 0; }
+        .battery-fill { width: 70%; height: 100%; background: #3ea83e; border-radius: 1px; }
+        .phone-screen {
+            flex: 1; overflow: hidden; display: flex; flex-direction: column; position: relative;
+            background: linear-gradient(165deg, #0e1528 0%, #080c18 50%, #0a0810 100%);
+        }
+        .phone-wallpaper-overlay {
+            position: absolute; inset: 0; pointer-events: none;
+            background: radial-gradient(ellipse 120% 80% at 20% 10%, rgba(44,100,244,0.07) 0%, transparent 60%),
+                        radial-gradient(ellipse 80% 60% at 80% 90%, rgba(99,199,77,0.05) 0%, transparent 50%);
+        }
+        .phone-app-area { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px 14px 6px; position: relative; z-index: 1; }
+        .phone-app-area::-webkit-scrollbar { display: none; }
+        .phone-page-title {
+            text-align: center; font-size: 13px; color: rgba(255,255,255,0.35); letter-spacing: 1px;
+            margin-bottom: 14px; margin-top: 2px;
+        }
+        /* Home grid */
+        #home-view { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px 12px; padding: 4px 2px; }
+        .app-icon { display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; }
+        .app-icon:active .app-icon-face { transform: scale(0.86); }
+        .app-icon-face {
+            width: 58px; height: 58px; border-radius: 15px; display: flex; justify-content: center; align-items: center;
+            font-size: 28px; transition: transform 0.12s;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 0 rgba(0,0,0,0.3);
+        }
+        .app-label { font-size: 12px; color: rgba(220,230,240,0.85); text-shadow: 0 1px 4px rgba(0,0,0,0.9); text-align: center; }
+        .icon-darkweb .app-icon-face { background: linear-gradient(145deg, #182a18, #0c1c0c); border: 1px solid #2a4a2a; }
+        .icon-texts .app-icon-face { background: linear-gradient(145deg, #182050, #0c1438); border: 1px solid #283880; }
+        .icon-map .app-icon-face { background: linear-gradient(145deg, #302050, #1c1038); border: 1px solid #503880; }
+        .icon-generic .app-icon-face { background: linear-gradient(145deg, #181828, #0c0c1c); border: 1px solid #282838; }
+        .app-locked .app-icon-face { opacity: 0.42; }
+        .app-locked .app-label { color: rgba(120,140,160,0.7); }
+        .lock-badge {
+            position: absolute; bottom: 2px; right: 2px; font-size: 12px; line-height: 1;
+        }
+        .app-icon-wrap { position: relative; width: 58px; height: 58px; }
+        /* Notification dot */
+        .notif-dot {
+            position: absolute; top: -2px; right: -2px; width: 14px; height: 14px;
+            background: #e43b44; border-radius: 50%; border: 2px solid #0c0c12;
+            display: flex; align-items: center; justify-content: center; font-size: 9px;
+        }
+        /* Store view */
+        #store-view { display: none; flex-direction: column; min-height: 100%; }
+        .store-topbar {
+            display: flex; align-items: center; gap: 10px; padding: 10px 0 14px;
+            border-bottom: 1px solid rgba(99,199,77,0.15); margin-bottom: 14px;
+        }
+        .back-btn {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            color: #8fa1b3; padding: 5px 10px; border-radius: 8px; cursor: pointer;
+            font-family: inherit; font-size: 14px; transition: background 0.1s;
+        }
+        .back-btn:active { background: rgba(255,255,255,0.12); }
+        .store-name { color: #63c74d; font-size: 18px; text-shadow: 0 0 12px rgba(99,199,77,0.35); }
+        .store-card {
+            background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 16px; padding: 16px; margin-bottom: 10px;
+        }
+        .store-card-top { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+        .store-card-icon { font-size: 38px; flex-shrink: 0; }
+        .store-card-name { font-size: 18px; color: #f0f0f0; margin-bottom: 3px; }
+        .store-card-desc { font-size: 13px; color: #6a8a9a; line-height: 1.35; }
+        .store-card-price { font-size: 22px; color: #feae34; text-shadow: 0 0 10px rgba(254,174,52,0.35); margin-bottom: 10px; }
+        .buy-btn {
+            width: 100%; padding: 11px; background: linear-gradient(145deg, #2a6a20, #1c4c14);
+            color: #90e870; border: 1px solid #3a8a2a; border-bottom: 3px solid #0c2808;
+            border-radius: 10px; font-family: inherit; font-size: 17px; cursor: pointer;
+            box-shadow: 0 0 14px rgba(60,140,40,0.2);
+        }
+        .buy-btn:active { transform: translateY(2px); border-bottom: 1px solid #0c2808; }
+        #store-msg { min-height: 18px; text-align: center; font-size: 15px; margin-top: 8px; }
+        .store-footer { text-align: center; color: #2a3a4a; font-size: 13px; padding: 12px 0 4px; }
+        /* Phone dock / home bar */
+        .phone-dock {
+            background: #0c0c12; height: 30px; display: flex; justify-content: center; align-items: center;
+            flex-shrink: 0; padding-bottom: 4px;
+        }
+        .home-pill { width: 110px; height: 5px; background: rgba(255,255,255,0.18); border-radius: 5px; cursor: pointer; }
 
-        .inv-item { background: #1a1a1a; border: 1px solid #444; padding: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .drop-btn { background: #d32f2f; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-family: inherit; cursor: pointer; font-size: 10px; font-weight: bold;}
-        .drop-btn:active { background: #b71c1c; }
-
+        /* ===== INVENTORY ===== */
+        #inventory-modal {
+            position: absolute; top: 12%; left: 8%; right: 8%; bottom: 16%;
+            background: #10121e; border: 1px solid #282840; border-radius: 18px;
+            display: none; flex-direction: column; overflow: hidden;
+            pointer-events: auto; box-shadow: 0 24px 70px rgba(0,0,0,0.95); z-index: 100;
+        }
+        .inv-header {
+            background: #141626; padding: 14px 18px; text-align: center; font-size: 20px;
+            color: #c084fc; border-bottom: 1px solid #282840; letter-spacing: 3px;
+            text-shadow: 0 0 12px rgba(192,132,252,0.4);
+        }
+        .inv-body { flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .inv-row {
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+            padding: 13px 16px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .inv-row-left { font-size: 18px; }
+        .drop-btn {
+            background: rgba(200,30,40,0.2); color: #e43b44; border: 1px solid rgba(200,30,40,0.3);
+            padding: 6px 12px; border-radius: 6px; font-family: inherit; cursor: pointer; font-size: 14px;
+        }
+        .drop-btn:active { background: rgba(200,30,40,0.4); }
+        .inv-footer {
+            background: #0c0e1a; color: #e43b44; padding: 14px; text-align: center; cursor: pointer;
+            font-size: 17px; border-top: 1px solid #201830; letter-spacing: 2px;
+        }
+        .inv-footer:active { background: #180818; }
     </style>
 </head>
 <body>
-
 <div id="game-container">
     <canvas id="gameCanvas" width="400" height="700"></canvas>
-    
     <div id="ui-layer">
         <div class="top-bar">
             <div class="top-row">
-                <div>$<span id="ui-cash" class="highlight">0</span> | <span id="ui-stash" class="stash-text">0</span>g</div>
-                <div>DAY <span id="ui-day">1</span> - <span id="ui-time">08:00</span></div>
+                <div>$<span id="ui-cash" class="highlight">0</span>&nbsp;&nbsp;<span style="color:#3a4a5a;">|</span>&nbsp;&nbsp;<span id="ui-stash" class="stash-text">0</span>g</div>
+                <div style="color:#6a7a8a;">DAY <span id="ui-day" style="color:#c8d8e8;">1</span>&nbsp;&nbsp;<span id="ui-time" style="color:#2ce8f4;">08:00</span></div>
             </div>
             <div class="top-row stats-text">
-                <div>SEEDS: <span id="ui-seeds">0</span> | WATER: <span id="ui-water" class="water-text">0</span>%</div>
-                <div style="display: flex; gap: 5px;">
-                    <button id="btn-inv" class="ui-btn">👜 INV (I)</button>
-                    <button id="btn-phone" class="ui-btn">📱 PHONE (P)</button>
-                    <button id="btn-reset" class="ui-btn">RESET</button>
+                <div>SEEDS: <span id="ui-seeds">0</span>&nbsp;&nbsp;WATER: <span id="ui-water" class="water-text">0</span>%</div>
+                <div style="display:flex;gap:8px;">
+                    <button id="btn-inv" class="ui-btn">📦 INV</button>
+                    <button id="btn-phone" class="ui-btn">📱 PHONE</button>
                 </div>
             </div>
         </div>
-        
         <div id="mission-tracker">
-            <div style="color: #00aaff; margin-bottom: 5px;">TASK:</div>
+            <div style="color:#2ce8f4;font-size:13px;letter-spacing:2px;margin-bottom:4px;">▶ OBJECTIVE</div>
             <div id="ui-mission">Loading...</div>
         </div>
-        
-        <div id="dialogue-box">
-            <span id="ui-dialogue"></span>
-        </div>
+        <div id="dialogue-box"><span id="ui-dialogue"></span></div>
     </div>
-
     <div id="touch-controls">
         <div id="joystick-area"><div id="joystick-stick"></div></div>
-        <div id="action-btn" class="circle-btn">INTERACT<br>(E)</div>
+        <div id="action-btn" class="circle-btn">ACT<br><span style="font-size:11px;opacity:0.6;">[E]</span></div>
     </div>
 
-    <!-- Modals -->
-    <div id="phone-modal" class="modal">
-        <div class="modal-header">iTrapOS 1.0 <span style="float:right;" id="phone-clock">08:00</span></div>
-        <div class="modal-screen">
-            <div id="home-view" class="app-grid">
-                <div class="app-icon store" onclick="openApp('store-view')">🛒<br><br>DarkWeb</div>
-                <div class="app-icon locked">💬<br><br>Texts</div>
-                <div class="app-icon locked">📍<br><br>Map</div>
+    <!-- PHONE MODAL -->
+    <div id="phone-modal">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-status">
+            <span id="phone-clock" style="color:#8fa1b3;">08:00</span>
+            <div class="phone-status-right">
+                <div style="display:flex;gap:2px;align-items:flex-end;">
+                    <div class="sig-bar" style="height:5px;"></div>
+                    <div class="sig-bar" style="height:8px;"></div>
+                    <div class="sig-bar" style="height:11px;"></div>
+                    <div class="sig-bar" style="height:14px;"></div>
+                </div>
+                <span style="font-size:12px;color:#5a7a8a;">4G</span>
+                <div class="battery"><div class="battery-fill"></div></div>
             </div>
-            <div id="store-view">
-                <div>
-                    <h3 style="margin: 0 0 10px 0; color:#4CAF50; text-align:center;">DarkWeb Seeds</h3>
-                    <div class="store-item">
-                        <strong>OG Kush Seed</strong><br><br>$20.00
-                        <button class="action-btn" onclick="buySeed()">PURCHASE</button>
-                        <div id="store-msg" style="margin-top:10px; font-size:10px; color:#ff5252;"></div>
+        </div>
+        <div class="phone-screen">
+            <div class="phone-wallpaper-overlay"></div>
+            <div class="phone-app-area">
+                <div id="home-view">
+                    <div class="phone-page-title" style="grid-column:1/-1;">iTrapOS&nbsp;1.0</div>
+                    <!-- DarkWeb with notif -->
+                    <div class="app-icon icon-darkweb" onclick="openApp('store-view')">
+                        <div class="app-icon-wrap">
+                            <div class="app-icon-face">🕸️</div>
+                            <div class="notif-dot">1</div>
+                        </div>
+                        <div class="app-label">DarkWeb</div>
+                    </div>
+                    <div class="app-icon icon-texts app-locked">
+                        <div class="app-icon-wrap">
+                            <div class="app-icon-face">💬</div>
+                            <div class="lock-badge">🔒</div>
+                        </div>
+                        <div class="app-label">Messages</div>
+                    </div>
+                    <div class="app-icon icon-map app-locked">
+                        <div class="app-icon-wrap">
+                            <div class="app-icon-face">🗺️</div>
+                            <div class="lock-badge">🔒</div>
+                        </div>
+                        <div class="app-label">Map</div>
+                    </div>
+                    <div class="app-icon icon-generic app-locked">
+                        <div class="app-icon-wrap">
+                            <div class="app-icon-face">📦</div>
+                            <div class="lock-badge">🔒</div>
+                        </div>
+                        <div class="app-label">Deliveries</div>
+                    </div>
+                    <div class="app-icon icon-generic app-locked">
+                        <div class="app-icon-wrap">
+                            <div class="app-icon-face">💰</div>
+                            <div class="lock-badge">🔒</div>
+                        </div>
+                        <div class="app-label">Ledger</div>
+                    </div>
+                    <div class="app-icon icon-generic app-locked">
+                        <div class="app-icon-wrap">
+                            <div class="app-icon-face">📡</div>
+                            <div class="lock-badge">🔒</div>
+                        </div>
+                        <div class="app-label">Scanner</div>
                     </div>
                 </div>
-                <div style="text-align: center; font-size: 11px; color:#aaa;">Delivered instantly via drone.</div>
+                <div id="store-view">
+                    <div class="store-topbar">
+                        <button class="back-btn" onclick="openApp('home-view')">◀ Back</button>
+                        <div class="store-name">🕸 DarkWeb Market</div>
+                    </div>
+                    <div class="store-card">
+                        <div class="store-card-top">
+                            <div class="store-card-icon">🌱</div>
+                            <div>
+                                <div class="store-card-name">OG Kush — Seed</div>
+                                <div class="store-card-desc">Premium genetics. Fast veg, dense buds. Delivered by drone within minutes.</div>
+                            </div>
+                        </div>
+                        <div class="store-card-price">$20.00</div>
+                        <button class="buy-btn" onclick="buySeed()">⚡ PURCHASE</button>
+                        <div id="store-msg"></div>
+                    </div>
+                    <div class="store-footer">🔒 More listings unlock as you rank up</div>
+                </div>
             </div>
         </div>
-        <div class="modal-close-btn" onclick="togglePhone()">CLOSE PHONE</div>
+        <div class="phone-dock"><div class="home-pill" onclick="togglePhone()"></div></div>
     </div>
 
-    <div id="inventory-modal" class="modal">
-        <div class="modal-header">BACKPACK</div>
-        <div class="modal-screen">
-            <div class="inv-item">
-                <div>🌿 Product: <span id="inv-stash" class="stash-text">0</span>g</div>
-                <button class="drop-btn" onclick="dropItem('product', 10)">DROP 10g</button>
+    <!-- INVENTORY MODAL -->
+    <div id="inventory-modal">
+        <div class="inv-header">⚙ BACKPACK</div>
+        <div class="inv-body">
+            <div class="inv-row">
+                <div class="inv-row-left">🌿 Product &nbsp;<span id="inv-stash" class="stash-text">0</span>g</div>
+                <button class="drop-btn" onclick="dropItem('product',10)">DROP 10g</button>
             </div>
-            <div class="inv-item">
-                <div>🌰 Seeds: <span id="inv-seeds">0</span></div>
-                <button class="drop-btn" onclick="dropItem('seeds', 1)">DROP 1</button>
+            <div class="inv-row">
+                <div class="inv-row-left">🌱 Seeds &nbsp;<span id="inv-seeds" class="highlight">0</span></div>
+                <button class="drop-btn" onclick="dropItem('seeds',1)">DROP 1</button>
             </div>
         </div>
-        <div class="modal-close-btn" onclick="toggleInventory()">CLOSE INVENTORY</div>
+        <div class="inv-footer" onclick="toggleInventory()">✕ CLOSE</div>
     </div>
 </div>
 
 <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
 
-    // DOM UI Mapping
-    const ui = {
-        cash: document.getElementById('ui-cash'), stash: document.getElementById('ui-stash'),
-        seeds: document.getElementById('ui-seeds'), water: document.getElementById('ui-water'),
-        time: document.getElementById('ui-time'), day: document.getElementById('ui-day'),
-        mission: document.getElementById('ui-mission'), dialogue: document.getElementById('ui-dialogue'),
-        missionBox: document.getElementById('mission-tracker'), dialogueBox: document.getElementById('dialogue-box'),
-        phoneClock: document.getElementById('phone-clock'),
-        invStash: document.getElementById('inv-stash'), invSeeds: document.getElementById('inv-seeds')
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){
+        r=Math.min(r,w/2,h/2);
+        this.moveTo(x+r,y);this.lineTo(x+w-r,y);this.quadraticCurveTo(x+w,y,x+w,y+r);
+        this.lineTo(x+w,y+h-r);this.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+        this.lineTo(x+r,y+h);this.quadraticCurveTo(x,y+h,x,y+h-r);
+        this.lineTo(x,y+r);this.quadraticCurveTo(x,y,x+r,y);this.closePath();
     };
+}
 
-    // --- GAME STATE ---
-    let gameState = { cash: 20, stash: 0, seeds: 1, water: 0, day: 1, time: 8 * 60, timeSpeed: 10, missionIndex: 0, tutorialActive: true };
-    let potData = { state: 'empty', progress: 0 };
-    let doorData = { customerWaiting: false };
-    let housesData = [ { state: 'ready', timer: 0 }, { state: 'ready', timer: 0 }, { state: 'ready', timer: 0 } ];
-    let droppedItems = []; 
+// =====================================================
+// PALETTE
+// =====================================================
+const P = {
+    O:'#181425',            // outline
+    // Skin
+    S:'#e8b488', s:'#c8845a',
+    // Hair (rich brown, like reference)
+    H:'#4a1e08', h:'#8b3a10', J:'#c05a18',  // dark / mid / shine
+    // Hoodie teal
+    A:'#1a7a8a', a:'#28aabc', Z:'#0e5868',
+    // Jeans
+    T:'#1e2a3e', t:'#2e3e56',
+    // Shoes
+    K:'#b89040', k:'#d8b860',
+    // Face details
+    W:'#f4f4f4',            // eye white
+    E:'#181425',            // eye pupil (same as outline = dark dot)
+    N:'#c06050',            // mouth / lips
+    // Plant greens
+    L:'#2d7d2d', l:'#3daa3d', G:'#5adc5a', g:'#1a5a1a',
+    // Buds / pistils
+    U:'#7a3888', u:'#a05ab0',
+    R:'#d0901a', r:'#e8b030',
+    // Pot
+    C:'#9a5030', c:'#bc6840', D:'#6a3018', d:'#7a3a20',
+    // Soil
+    M:'#3a1e08', m:'#4e2810',
+    // Items
+    I:'#4878c0', i:'#68a0e8',
+    // Misc
+    X:'#181818', x:'#282828', Y:'#383838', y:'#484848', Q:'#888', q:'#aaa',
+};
 
-    const WORLD_W = 1000; const WORLD_H = 1000;
-    let camera = { x: 0, y: 0 };
+// =====================================================
+// SPRITES — top-down RPG character
+// Front/Back: 8px wide × 16 tall
+// Left/Right:  7px wide × 16 tall
+// =====================================================
+const SD = {
 
-    function updateUI() {
-        if(!ui.cash) return; // safety check
-        ui.cash.innerText = gameState.cash; ui.stash.innerText = gameState.stash;
-        ui.seeds.innerText = gameState.seeds; ui.water.innerText = gameState.water;
-        ui.invStash.innerText = gameState.stash; ui.invSeeds.innerText = gameState.seeds;
+    // ════ FRONT (facing camera) ════════════════════════
+
+    // idle
+    // ════════════════════════════════════════════
+    // FRONT — 8 wide × 16 tall
+    // 2 eyes = pixel E at col1 and col5 in eye row, S between
+    // ════════════════════════════════════════════
+    pF0:[
+        ".OHHHHO.",
+        "OHhhhhhO",
+        "OHhJhhhO",
+        "OSSSSSsO",
+        "OsESSEsO",
+        "OSSSSSsO",
+        "OSsNNsOO",
+        ".OSSssO.",
+        ".OAAAZO.",
+        "OAaaaaAO",
+        "OAaaaaAO",
+        "OZaaaaZO",
+        ".OZaaZO.",
+        "OTttttTO",
+        "OTttttTO",
+        ".OKkkKO.",
+    ],
+    pF1:[
+        ".OHHHHO.",
+        "OHhhhhhO",
+        "OHhJhhhO",
+        "OSSSSSsO",
+        "OsESSEsO",
+        "OSSSSSsO",
+        "OSsNNsOO",
+        ".OSSssO.",
+        ".OAAAZO.",
+        "OAaaaaAO",
+        "OAaaaaAO",
+        "OZaaaaZO",
+        ".OZaaZO.",
+        "OTtOTtTO",
+        ".OtOTttO",
+        "OKkO.KkO",
+    ],
+    pF2:[
+        ".OHHHHO.",
+        "OHhhhhhO",
+        "OHhJhhhO",
+        "OSSSSSsO",
+        "OsESSEsO",
+        "OSSSSSsO",
+        "OSsNNsOO",
+        ".OSSssO.",
+        ".OAAAZO.",
+        "OAaaaaAO",
+        "OAaaaaAO",
+        "OZaaaaZO",
+        ".OZaaZO.",
+        "OTtTOtTO",
+        ".OTttOtO",
+        "OKkK.OkO",
+    ],
+
+    // ════════════════════════════════════════════
+    // BACK — 8 wide × 16 tall, all hair no face
+    // ════════════════════════════════════════════
+    pB0:[
+        ".OHHHHO.",
+        "OHhhhhhO",
+        "OHhJhhhO",
+        "OHhhhhhO",
+        "OHhhhhhO",
+        ".OHHHhO.",
+        "..OHHOO.",
+        ".OAAAZO.",
+        "OAaaaaAO",
+        "OAaaaaAO",
+        "OZaaaaZO",
+        "OZaaaaZO",
+        ".OZaaZO.",
+        "OTttttTO",
+        "OTttttTO",
+        ".OKkkKO.",
+    ],
+    pB1:[
+        ".OHHHHO.",
+        "OHhhhhhO",
+        "OHhJhhhO",
+        "OHhhhhhO",
+        "OHhhhhhO",
+        ".OHHHhO.",
+        "..OHHOO.",
+        ".OAAAZO.",
+        "OAaaaaAO",
+        "OAaaaaAO",
+        "OZaaaaZO",
+        "OZaaaaZO",
+        ".OZaaZO.",
+        "OTtOTtTO",
+        ".OtOTttO",
+        "OKkO.KkO",
+    ],
+    pB2:[
+        ".OHHHHO.",
+        "OHhhhhhO",
+        "OHhJhhhO",
+        "OHhhhhhO",
+        "OHhhhhhO",
+        ".OHHHhO.",
+        "..OHHOO.",
+        ".OAAAZO.",
+        "OAaaaaAO",
+        "OAaaaaAO",
+        "OZaaaaZO",
+        "OZaaaaZO",
+        ".OZaaZO.",
+        "OTtTOtTO",
+        ".OTttOtO",
+        "OKkK.OkO",
+    ],
+
+    // ════════════════════════════════════════════
+    // LEFT — 7 wide × 16 tall
+    // Face on LEFT side (cols 1-3), hair fills right
+    // ONE eye only (col 2), no beak
+    // ════════════════════════════════════════════
+    pL0:[
+        ".OHHHO.",
+        "OHhhhHO",
+        "OHhJhHO",
+        "OSShhhO",
+        "OSEhhhO",
+        "OSShhhO",
+        "ONshhHO",
+        ".OSsHO.",
+        ".OAAZO.",
+        ".OAaaO.",
+        "OAaaaaO",
+        "OZaaaaO",
+        ".OZaaO.",
+        ".OTttO.",
+        ".OTttO.",
+        ".OKkkO.",
+    ],
+    pL1:[
+        ".OHHHO.",
+        "OHhhhHO",
+        "OHhJhHO",
+        "OSShhhO",
+        "OSEhhhO",
+        "OSShhhO",
+        "ONshhHO",
+        ".OSsHO.",
+        ".OAAZO.",
+        ".OAaaO.",
+        "OAaaaaO",
+        "OZaaaaO",
+        ".OZaaO.",
+        "OTtttTO",
+        "..OTtO.",
+        "OKkkOO.",
+    ],
+    pL2:[
+        ".OHHHO.",
+        "OHhhhHO",
+        "OHhJhHO",
+        "OSShhhO",
+        "OSEhhhO",
+        "OSShhhO",
+        "ONshhHO",
+        ".OSsHO.",
+        ".OAAZO.",
+        ".OAaaO.",
+        "OAaaaaO",
+        "OZaaaaO",
+        ".OZaaO.",
+        ".OTttO.",
+        "OTtttTO",
+        ".OOKkkO",
+    ],
+
+    // ════════════════════════════════════════════
+    // RIGHT — 7 wide × 16 tall, mirror of left
+    // Face on RIGHT side, hair fills left
+    // ════════════════════════════════════════════
+    pR0:[
+        ".OHHHO.",
+        "OHhhhHO",
+        "OHhJhHO",
+        "OhhhSSO",
+        "OhhhESO",
+        "OhhhSSO",
+        "OHhhsNO",
+        ".OHsSOO",
+        ".OZAAO.",
+        ".OaaAO.",
+        "OaaaaAO",
+        "OaaaaZO",
+        ".OaaZO.",
+        ".OttTO.",
+        ".OttTO.",
+        ".OKkkO.",
+    ],
+    pR1:[
+        ".OHHHO.",
+        "OHhhhHO",
+        "OHhJhHO",
+        "OhhhSSO",
+        "OhhhESO",
+        "OhhhSSO",
+        "OHhhsNO",
+        ".OHsSOO",
+        ".OZAAO.",
+        ".OaaAO.",
+        "OaaaaAO",
+        "OaaaaZO",
+        ".OaaZO.",
+        ".OTtttO",
+        ".OTtO..",
+        ".OOKkkO",
+    ],
+    pR2:[
+        ".OHHHO.",
+        "OHhhhHO",
+        "OHhJhHO",
+        "OhhhSSO",
+        "OhhhESO",
+        "OhhhSSO",
+        "OHhhsNO",
+        ".OHsSOO",
+        ".OZAAO.",
+        ".OaaAO.",
+        "OaaaaAO",
+        "OaaaaZO",
+        ".OaaZO.",
+        ".OttTO.",
+        "OTtttTO",
+        "OKkkOO.",
+    ],
+
+
+    // ---- POT SPRITES ----
+    potEmpty:[
+        "................",
+        ".....OCCCCO.....",
+        "....OcMMMMcO....",
+        "....OcMMMMcO....",
+        "....OcMMMMcO....",
+        ".....OCCCcO.....",
+        "......OcCO......",
+        "....OOOccOOO....",
+        "...OCCCccCCCO...",
+        "...ODDDDDDDdO...",
+        "....OOOOOOOOO...",
+    ],
+    potSeedling:[
+        "........lO......",
+        ".......lLO......",
+        "......OlLO......",
+        ".......OlO......",
+        "........OO......",
+        ".....OCCCCO.....",
+        "....OcmMmmcO....",
+        "....OcMMMMcO....",
+        "....OcMMMMcO....",
+        ".....OCCCcO.....",
+        "......OcCO......",
+        "....OOOccOOO....",
+        "...OCCCccCCCO...",
+        "...ODDDDDDDdO...",
+        "....OOOOOOOOO...",
+    ],
+    potSmall:[
+        "......OlO.......",
+        ".....OlLlO......",
+        "....OlLGLlO.....",
+        ".OlO.OlgglO.....",
+        ".OLlOOlGLlO.....",
+        "..OllllgllO.....",
+        "...OllLllO......",
+        "....OlllO.......",
+        ".....OlO........",
+        "......OO........",
+        ".....OCCCCO.....",
+        "....OcmMmmcO....",
+        "....OcMMMMcO....",
+        "....OcMMMMcO....",
+        ".....OCCCcO.....",
+        "......OcCO......",
+        "....OOOccOOO....",
+        "...OCCCccCCCO...",
+        "....OOOOOOOOO...",
+    ],
+    potReady:[
+        "...OlO...OlO....",
+        "..OlGlO.OlGlO...",
+        ".OlUuUlOlUuUlO..",
+        "OlUuuuuUuuuuulO.",
+        ".OlUuuGUuuGUlO..",
+        "..OlUUGGUUGlO...",
+        "...OlgLGLgllO...",
+        "....OllGLllO....",
+        ".OlO.OlLlO.OlO..",
+        "OlLlOOlllOOlLlO.",
+        ".OlRRlllllRRlO..",
+        "..OlRruuuRRlO...",
+        "...OllLGLllO....",
+        "....OllgllO.....",
+        ".....OlllO......",
+        "......OlO.......",
+        ".......OO.......",
+        ".....OCCCCO.....",
+        "....OcmMmmcO....",
+        "....OcMMMMcO....",
+        "....OcMMMMcO....",
+        ".....OCCCcO.....",
+        "......OcCO......",
+        "....OOOccOOO....",
+        "...OCCCccCCCO...",
+        "....OOOOOOOOO...",
+    ],
+    itemProduct:[
+        "..OOOOO.",
+        ".OlgLGlO",
+        ".OGLglgO",
+        "OlGlgLlO",
+        "OlLGglLO",
+        "OlglLGlO",
+        ".OlGLlO.",
+        "..OOOOO.",
+    ],
+    itemSeed:[
+        "...OO...",
+        "..ORrO..",
+        ".OrRRrO.",
+        "OrRlRRrO",
+        "OrRRRRrO",
+        ".OrRRrO.",
+        "..OOOO..",
+    ],
+};
+
+const SC = {}; // sprite cache
+const PS = 3;  // pixel scale
+
+function buildSprite(name, data) {
+    let w = data[0].length, h = data.length;
+    let c = document.createElement('canvas');
+    c.width = w*PS; c.height = h*PS;
+    let cx = c.getContext('2d');
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++) {
+        let ch = data[y][x];
+        if(ch !== '.') { cx.fillStyle = P[ch]||'#f0f'; cx.fillRect(x*PS, y*PS, PS, PS); }
     }
+    SC[name] = {img:c, w:c.width, h:c.height};
+}
+Object.keys(SD).forEach(k => buildSprite(k, SD[k]));
 
-    // Dialogue System (Self-Closing)
-    let dialogueTimeout = null;
-    function setDialogue(text) {
-        ui.dialogue.innerHTML = text;
-        ui.dialogueBox.style.opacity = '1';
-        
-        if (dialogueTimeout) clearTimeout(dialogueTimeout);
-        dialogueTimeout = setTimeout(() => {
-            ui.dialogueBox.style.opacity = '0';
-        }, 3500); // Fades out cleanly after 3.5 seconds
+// =====================================================
+// UI refs
+// =====================================================
+const ui = {
+    cash:document.getElementById('ui-cash'), stash:document.getElementById('ui-stash'),
+    seeds:document.getElementById('ui-seeds'), water:document.getElementById('ui-water'),
+    time:document.getElementById('ui-time'), day:document.getElementById('ui-day'),
+    mission:document.getElementById('ui-mission'), dialogue:document.getElementById('ui-dialogue'),
+    missionBox:document.getElementById('mission-tracker'), dialogueBox:document.getElementById('dialogue-box'),
+    phoneClock:document.getElementById('phone-clock'),
+    invStash:document.getElementById('inv-stash'), invSeeds:document.getElementById('inv-seeds'),
+};
+
+// =====================================================
+// GAME STATE
+// =====================================================
+let gs = { cash:20, stash:0, seeds:1, water:0, day:1, time:480, timeSpeed:10, missionIdx:0, tutActive:true, eHandled:false };
+let potData = { state:'empty', progress:0 };
+let doorData = { waiting:false };
+let housesData = [{state:'ready',timer:0},{state:'ready',timer:0},{state:'ready',timer:0}];
+let dropped = [];
+
+let facing = 'front';
+let walkT = 0, idleT = 0;
+let moving = false;
+
+const WORLD_W = 1000, WORLD_H = 1000;
+let cam = {x:0,y:0};
+
+function updateUI() {
+    ui.cash.innerText=gs.cash; ui.stash.innerText=gs.stash;
+    ui.seeds.innerText=gs.seeds; ui.water.innerText=gs.water;
+    ui.invStash.innerText=gs.stash; ui.invSeeds.innerText=gs.seeds;
+}
+let dlgTO = null;
+function dlg(text) {
+    ui.dialogue.innerHTML=text; ui.dialogueBox.style.opacity='1';
+    if(dlgTO) clearTimeout(dlgTO);
+    dlgTO = setTimeout(()=>{ ui.dialogueBox.style.opacity='0'; },4000);
+}
+
+// SAVE / LOAD
+const SK = 'sched_i_v8';
+function save() {
+    try { localStorage.setItem(SK, JSON.stringify({gs,potData,doorData,housesData,dropped})); dlg("💾 Game saved."); }
+    catch(e){}
+}
+function load() {
+    try {
+        let raw = localStorage.getItem(SK);
+        if(raw) {
+            let d = JSON.parse(raw);
+            if(d.gs) Object.assign(gs,d.gs);
+            if(d.potData) Object.assign(potData,d.potData);
+            if(d.doorData) Object.assign(doorData,d.doorData);
+            if(d.housesData) housesData=d.housesData;
+            if(d.dropped) dropped=d.dropped;
+            if(!gs.tutActive) ui.missionBox.style.display='none';
+        }
+    } catch(e){}
+    updateUI();
+}
+load();
+
+// INPUT
+const tctrl = document.getElementById('touch-controls');
+let touchMode = true;
+function setMode(m) {
+    if(touchMode===(m==='touch')) return;
+    touchMode=m==='touch';
+    tctrl.style.display=touchMode?'flex':'none';
+}
+const keys = {w:0,a:0,s:0,d:0,e:0,p:0,i:0};
+const joy = {dx:0,dy:0};
+let actPr=false, phDone=false, invDone=false;
+let phOpen=false, invOpen=false;
+
+window.addEventListener('keydown',e=>{ setMode('kb'); let k=e.key.toLowerCase(); if(k in keys) keys[k]=1; });
+window.addEventListener('keyup',e=>{ let k=e.key.toLowerCase(); if(k in keys) keys[k]=0; });
+window.addEventListener('mousemove',()=>setMode('kb'));
+window.addEventListener('touchstart',()=>setMode('touch'),{passive:true});
+
+const joyEl=document.getElementById('joystick-area');
+const joyStick=document.getElementById('joystick-stick');
+let joyRect=null;
+joyEl.addEventListener('touchstart',e=>{ e.preventDefault(); joyRect=joyEl.getBoundingClientRect(); updateJoy(e.touches[0]); },{passive:false});
+joyEl.addEventListener('touchmove',e=>{ e.preventDefault(); updateJoy(e.touches[0]); },{passive:false});
+joyEl.addEventListener('touchend',()=>{ joy.dx=0; joy.dy=0; joyStick.style.transform='translate(-50%,-50%)'; });
+function updateJoy(t) {
+    if(!joyRect) return;
+    let dx=t.clientX-(joyRect.left+joyRect.width/2), dy=t.clientY-(joyRect.top+joyRect.height/2);
+    let d=Math.hypot(dx,dy), mx=40;
+    if(d>mx){dx=dx/d*mx; dy=dy/d*mx;}
+    joyStick.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;
+    joy.dx=dx/mx; joy.dy=dy/mx;
+}
+const actBtn=document.getElementById('action-btn');
+actBtn.addEventListener('touchstart',e=>{ e.preventDefault(); actPr=true; actBtn.classList.add('active'); },{passive:false});
+actBtn.addEventListener('touchend',()=>{ actPr=false; actBtn.classList.remove('active'); });
+
+document.getElementById('btn-phone').addEventListener('click',togglePhone);
+document.getElementById('btn-inv').addEventListener('click',toggleInventory);
+
+function togglePhone() {
+    if(invOpen) toggleInventory();
+    phOpen=!phOpen;
+    document.getElementById('phone-modal').style.display=phOpen?'flex':'none';
+    if(phOpen){ openApp('home-view'); if(gs.missionIdx===4) advance(4); }
+}
+function toggleInventory() {
+    if(phOpen) togglePhone();
+    invOpen=!invOpen;
+    document.getElementById('inventory-modal').style.display=invOpen?'flex':'none';
+    updateUI();
+}
+window.openApp=function(id){
+    document.getElementById('home-view').style.display='none';
+    document.getElementById('store-view').style.display='none';
+    document.getElementById(id).style.display=id==='home-view'?'grid':'flex';
+    document.getElementById('store-msg').innerText='';
+};
+window.buySeed=function(){
+    if(gs.cash>=20){ gs.cash-=20; gs.seeds++;
+        document.getElementById('store-msg').style.color='#63c74d';
+        document.getElementById('store-msg').innerText='✓ Purchased!';
+        // Clear the notification dot
+        const dot = document.querySelector('.notif-dot');
+        if(dot) dot.style.display='none';
+        updateUI(); if(gs.missionIdx===5) advance(5);
+    } else {
+        document.getElementById('store-msg').style.color='#e43b44';
+        document.getElementById('store-msg').innerText='✕ Not enough cash.';
     }
+};
+window.dropItem=function(type,amt){
+    if(type==='product'&&gs.stash>=amt){ gs.stash-=amt; dropped.push({x:player.x,y:player.y+20,type:'product',amount:amt}); }
+    else if(type==='seeds'&&gs.seeds>=amt){ gs.seeds-=amt; dropped.push({x:player.x,y:player.y+20,type:'seeds',amount:amt}); }
+    updateUI();
+};
 
-    // --- PROTECTED SAVE / LOAD SYSTEM ---
-    const SAVE_KEY = 'schedule_i_save_v5'; // Bumped key to ignore old corrupt data
-    
-    function saveGame() {
-        try {
-            localStorage.setItem(SAVE_KEY, JSON.stringify({ gameState, potData, doorData, housesData, droppedItems }));
-            setDialogue("Game Saved. Progress stored.");
-        } catch (e) {
-            console.warn("Storage Blocked or Full.");
-            setDialogue("Could not save to browser storage.");
+// MISSIONS
+const missions=[
+    {text:"Move using Joystick or WASD keys.",check:()=>joy.dx||joy.dy||keys.w||keys.a||keys.s||keys.d},
+    {text:"Walk to the SINK (Top Middle). Press E to fill water."},
+    {text:"Walk to the GROW TENT (Top Right). Plant your seed then water it."},
+    {text:"Wait for plant to reach 100%, then harvest."},
+    {text:"Open PHONE via top button or 'P' key."},
+    {text:"Open DarkWeb and buy a Seed for $20."},
+    {text:"Wait for a buyer at the RV DOOR. Sell 10g for $150."},
+    {text:"Walk to BED (Top Left). Sleep to save game."},
+    {text:"Tutorial done! Walk outside and hustle."},
+];
+function advance(idx) {
+    if(!gs.tutActive) return;
+    if(gs.missionIdx===idx){
+        gs.missionIdx++;
+        if(missions[gs.missionIdx]) ui.mission.innerText=missions[gs.missionIdx].text;
+        else { gs.tutActive=false; ui.missionBox.style.opacity='0'; setTimeout(()=>{ ui.missionBox.style.display='none'; },500); }
+    }
+}
+
+// WORLD
+const rv={x:350,y:400,w:260,h:300};
+const player={x:rv.x+130,y:rv.y+150,size:14,speed:170};
+const tentX=rv.x+175, tentY=rv.y+8, tentW=82, tentH=96;
+
+const houseDefs=[
+    {x:30,y:150,w:160,h:140,dX:180,dY:210,idx:0,color:'#4b80ca'},
+    {x:30,y:450,w:160,h:140,dX:180,dY:510,idx:1,color:'#a22633'},
+    {x:30,y:750,w:160,h:140,dX:180,dY:810,idx:2,color:'#d3a068'},
+];
+const solids=[
+    ...houseDefs.map(h=>({x:h.x,y:h.y,w:h.w,h:h.h})),
+    {x:rv.x,y:rv.y,w:rv.w,h:15},
+    {x:rv.x,y:rv.y,w:15,h:rv.h},
+    {x:rv.x+rv.w-15,y:rv.y,w:15,h:rv.h},
+    {x:rv.x,y:rv.y+rv.h-15,w:105,h:15},
+    {x:rv.x+155,y:rv.y+rv.h-15,w:105,h:15},
+];
+
+const TILES={};
+function buildTiles(){
+    let c=document.createElement('canvas'); c.width=64; c.height=64; let cx=c.getContext('2d');
+    cx.fillStyle='#3e8948'; cx.fillRect(0,0,64,64);
+    for(let i=0;i<50;i++){ cx.fillStyle=Math.random()>.5?'#4ea858':'#2e6838'; cx.fillRect(Math.random()*64,Math.random()*64,3,3); }
+    TILES.grass=ctx.createPattern(c,'repeat');
+    c=document.createElement('canvas'); c.width=32; c.height=32; cx=c.getContext('2d');
+    cx.fillStyle='#c09050'; cx.fillRect(0,0,32,32);
+    cx.fillStyle='#a07030'; cx.fillRect(0,0,2,32);
+    cx.fillStyle='#181425'; cx.fillRect(4,4,2,2); cx.fillRect(4,26,2,2);
+    TILES.wood=ctx.createPattern(c,'repeat');
+}
+buildTiles();
+
+function bev(x,y,w,h,base,lt,dk){
+    ctx.fillStyle=base; ctx.fillRect(x,y,w,h);
+    ctx.fillStyle=lt; ctx.fillRect(x,y,w,2); ctx.fillRect(x,y,2,h);
+    ctx.fillStyle=dk; ctx.fillRect(x,y+h-2,w,2); ctx.fillRect(x+w-2,y,2,h);
+}
+function shadow(cx,cy,rx,ry){
+    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2); ctx.fill();
+}
+
+// GROW TENT
+function drawTent(){
+    // Back panel
+    ctx.fillStyle='#0e0e0e'; ctx.fillRect(tentX,tentY,tentW,tentH);
+    // Mylar interior
+    for(let i=0;i<tentH-4;i+=6){
+        ctx.fillStyle=i%12===0?'#b0b4b8':'#c0c4c8';
+        ctx.fillRect(tentX+4,tentY+4+i,tentW-8,6);
+    }
+    // LED grow light bar
+    ctx.fillStyle='#141414'; ctx.fillRect(tentX+6,tentY+4,tentW-12,10);
+    // LEDs
+    for(let i=0;i<5;i++){
+        let lx=tentX+10+i*13;
+        ctx.fillStyle=i%2===0?'#cc00ff':'#ff3366';
+        ctx.fillRect(lx,tentY+6,8,6);
+        // Glow
+        ctx.save(); ctx.globalAlpha=0.12;
+        ctx.fillStyle=i%2===0?'#cc00ff':'#ff3366';
+        ctx.beginPath(); ctx.ellipse(lx+4,tentY+9,14,12,0,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+    // Light cast glow on interior
+    let lg=ctx.createLinearGradient(tentX,tentY+14,tentX,tentY+tentH);
+    lg.addColorStop(0,'rgba(160,0,255,0.12)');
+    lg.addColorStop(0.4,'rgba(255,100,200,0.05)');
+    lg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=lg; ctx.fillRect(tentX+4,tentY+14,tentW-8,tentH-18);
+    // Metal frame poles
+    ctx.fillStyle='#222';
+    ctx.fillRect(tentX,tentY,4,tentH);
+    ctx.fillRect(tentX+tentW-4,tentY,4,tentH);
+    ctx.fillRect(tentX,tentY,tentW,4);
+    // Pole highlights
+    ctx.fillStyle='#444';
+    ctx.fillRect(tentX+1,tentY,1,tentH);
+    ctx.fillRect(tentX+tentW-3,tentY,1,tentH);
+    // Zipper flap lines
+    ctx.strokeStyle='rgba(100,100,100,0.5)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(tentX+tentW*0.22,tentY+tentH); ctx.lineTo(tentX+tentW/2,tentY+16); ctx.lineTo(tentX+tentW*0.78,tentY+tentH); ctx.stroke();
+    // Brand strip
+    ctx.fillStyle='rgba(30,30,30,0.9)'; ctx.fillRect(tentX+2,tentY+tentH-14,tentW-4,12);
+    ctx.fillStyle='#555'; ctx.font='7px monospace'; ctx.textAlign='center';
+    ctx.fillText('GROWMASTER PRO',tentX+tentW/2,tentY+tentH-5);
+}
+
+// INTERACTABLES
+const bed={
+    x:rv.x+20,y:rv.y+20,w:80,h:110,action:"Sleep",
+    interact(){ gs.day++; gs.time=480; doorData.waiting=Math.random()>0.4; if(gs.missionIdx===7) advance(7); save(); },
+    draw(){
+        bev(this.x,this.y,this.w,this.h,'#7a5a38','#c08848','#4a3828');
+        bev(this.x+6,this.y+6,this.w-12,this.h-12,'#e4e4e4','#ffffff','#8a9aaa');
+        bev(this.x+10,this.y+12,this.w-20,22,'#f0f0f0','#ffffff','#9badb7');
+        bev(this.x+6,this.y+42,this.w-12,this.h-48,'#6a0828','#c02040','#4a0418');
+        ctx.fillStyle='rgba(255,255,255,0.08)';
+        for(let i=0;i<4;i++) ctx.fillRect(this.x+10+i*16,this.y+46,10,this.h-56);
+    }
+};
+const sink={
+    x:rv.x+110,y:rv.y+20,w:58,h:36,action:"Fill Water",
+    interact(){ gs.water=100; dlg("💧 Watering can filled!"); updateUI(); advance(1); },
+    draw(){
+        bev(this.x,this.y,this.w,this.h,'#8a9aaa','#bcd0d8','#5a6878');
+        ctx.fillStyle='#2a3444'; ctx.fillRect(this.x+10,this.y+8,38,22);
+        ctx.fillStyle='#1a2434'; ctx.fillRect(this.x+12,this.y+10,34,18);
+        ctx.fillStyle='#404040'; ctx.fillRect(this.x+27,this.y+24,4,4);
+        bev(this.x+24,this.y-6,10,16,'#9badb7','#d0e0e8','#5a6878');
+        ctx.fillStyle='#2ce8f4'; ctx.fillRect(this.x+27,this.y+10,4,5);
+    }
+};
+const pot={
+    x:tentX+11,y:tentY+20,w:60,h:60,
+    get action(){
+        if(potData.state==='empty') return `Plant Seed (${gs.seeds})`;
+        if(potData.state==='planted') return "Water Plant";
+        if(potData.state==='growing') return `Growing: ${Math.floor(potData.progress)}%`;
+        return "Harvest 🌿";
+    },
+    interact(){
+        if(potData.state==='empty'){
+            if(gs.seeds>0){ gs.seeds--; potData.state='planted'; potData.progress=0; dlg("🌱 Seed planted."); updateUI(); }
+            else dlg("No seeds! Buy some on the phone.");
+        } else if(potData.state==='planted'){
+            if(gs.water>=25){ gs.water-=25; potData.state='growing'; dlg("💧 Watered! Watch it grow..."); updateUI(); advance(2); }
+            else dlg("Need water. Use the sink first.");
+        } else if(potData.state==='ready'){
+            potData.state='empty'; potData.progress=0; gs.stash+=10;
+            dlg("🌿 Harvested +10g!"); updateUI(); advance(3);
+            if(gs.missionIdx===4) doorData.waiting=true;
+        }
+    },
+    update(dt){
+        if(potData.state==='growing'){
+            potData.progress+=8*dt;
+            if(potData.progress>=100){ potData.progress=100; potData.state='ready'; dlg("✅ Plant ready to harvest!"); }
+        }
+    },
+    draw(){
+        let sn='potEmpty';
+        if(potData.state==='planted') sn='potSeedling';
+        else if(potData.state==='growing') sn=potData.progress>45?'potSmall':'potSeedling';
+        else if(potData.state==='ready') sn='potReady';
+        let s=SC[sn];
+        if(potData.state==='growing'){
+            let bx=this.x-8, by=this.y-14, bw=this.w+16;
+            ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(bx,by,bw,7);
+            ctx.fillStyle='#3daa3d'; ctx.fillRect(bx+1,by+1,(bw-2)*(potData.progress/100),5);
+            ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.fillRect(bx+1,by+1,(bw-2)*(potData.progress/100),2);
+        }
+        ctx.drawImage(s.img,this.x+(this.w-s.w)/2,this.y+this.h-s.h);
+    }
+};
+const rvDoor={
+    x:rv.x+105,y:rv.y+rv.h-20,w:50,h:20,
+    get action(){ return doorData.waiting?"Sell 10g ($150)":"Door (Locked)"; },
+    interact(){
+        if(doorData.waiting){
+            if(gs.stash>=10){ gs.stash-=10; gs.cash+=150; doorData.waiting=false; dlg("💸 Sold 10g for $150!"); updateUI(); advance(6); }
+            else dlg("Need 10g of product to sell.");
+        }
+    },
+    draw(){
+        if(doorData.waiting){
+            ctx.fillStyle='#e43b44'; ctx.beginPath(); ctx.arc(this.x+25,this.y+48,15,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.arc(this.x+25,this.y+48,15,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle='#fff'; ctx.font="bold 16px VT323"; ctx.textAlign='center';
+            ctx.fillText("$$$",this.x+25,this.y+53);
+            ctx.fillStyle='#feae34'; ctx.font="13px VT323";
+            ctx.fillText("BUYER",this.x+25,this.y+68);
         }
     }
+};
 
-    function loadGame() {
-        try {
-            const rawData = localStorage.getItem(SAVE_KEY);
-            if (rawData) {
-                const data = JSON.parse(rawData);
-                if (data.gameState) Object.assign(gameState, data.gameState);
-                if (data.potData) Object.assign(potData, data.potData);
-                if (data.doorData) Object.assign(doorData, data.doorData);
-                if (data.housesData && Array.isArray(data.housesData)) housesData = data.housesData;
-                if (data.droppedItems && Array.isArray(data.droppedItems)) droppedItems = data.droppedItems;
-
-                if (!gameState.tutorialActive) ui.missionBox.style.display = 'none';
+function getInteractables(){
+    let list=[bed,sink,pot,rvDoor];
+    houseDefs.forEach((h,i)=>{
+        list.push({
+            x:h.dX,y:h.dY,w:20,h:40,
+            get action(){ return housesData[i].state==='ready'?"Knock on Door":"No Answer"; },
+            interact(){
+                if(housesData[i].state!=='ready') return;
+                let r=Math.random();
+                if(r<0.25) dlg("Nobody home...");
+                else if(r<0.55) dlg("Get off my porch!");
+                else {
+                    if(gs.stash>=10){ gs.stash-=10; gs.cash+=150; dlg("💸 Sold 10g for $150!"); updateUI(); }
+                    else dlg("They want 10g, but you're short on product.");
+                }
+                housesData[i].state='cooldown'; housesData[i].timer=8*60;
             }
-        } catch (e) {
-            console.warn("Save Error or Storage Blocked. Loading default state.");
+        });
+    });
+    dropped.forEach((di,idx)=>{
+        list.push({
+            x:di.x-12,y:di.y-12,w:24,h:24,
+            action:`Pick up ${di.amount} ${di.type}`,
+            interact(){
+                if(di.type==='seeds') gs.seeds+=di.amount;
+                if(di.type==='product') gs.stash+=di.amount;
+                dropped.splice(idx,1); dlg(`Picked up ${di.amount} ${di.type}.`); updateUI();
+            }
+        });
+    });
+    return list;
+}
+
+let closest=null;
+
+// COLLISION
+function collide(x,y,sz){
+    let h=sz/2;
+    for(let s of solids){
+        if(x+h>s.x&&x-h<s.x+s.w&&y+h>s.y&&y-h<s.y+s.h) return true;
+    }
+    return x-h<0||x+h>WORLD_W||y-h<0||y+h>WORLD_H;
+}
+
+// PLAYER SPRITE SELECTION
+function getSprite(){
+    const dirMap = { front:'F', back:'B', left:'L', right:'R' };
+    let dir = dirMap[facing] || 'F';
+    let frame;
+    if(!moving){
+        frame = Math.floor(idleT * 1.2) % 2;
+    } else {
+        let cycle = Math.floor(walkT) % 4;
+        frame = [0,1,0,2][cycle];
+    }
+    return SC[`p${dir}${frame}`] || SC[`p${dir}0`];
+}
+
+// MAIN LOOP
+let lastT=performance.now();
+
+function update(dt){
+    if(phOpen||invOpen) return;
+    gs.time+=gs.timeSpeed*dt;
+    if(gs.time>=1440){ gs.day++; gs.time=0; }
+    let hrs=Math.floor(gs.time/60).toString().padStart(2,'0');
+    let min=Math.floor(gs.time%60).toString().padStart(2,'0');
+    ui.time.innerText=`${hrs}:${min}`; ui.phoneClock.innerText=`${hrs}:${min}`; ui.day.innerText=gs.day;
+
+    pot.update(dt);
+    housesData.forEach(h=>{ if(h.state==='cooldown'){ h.timer-=gs.timeSpeed*dt; if(h.timer<=0) h.state='ready'; } });
+
+    if(keys.p&&!phDone){ togglePhone(); phDone=true; } if(!keys.p) phDone=false;
+    if(keys.i&&!invDone){ toggleInventory(); invDone=true; } if(!keys.i) invDone=false;
+    if(gs.tutActive&&gs.missionIdx===0&&missions[0].check()) advance(0);
+
+    let dx=0, dy=0;
+    if(keys.w) dy-=1; if(keys.s) dy+=1; if(keys.a) dx-=1; if(keys.d) dx+=1;
+    if(dx===0&&dy===0){ dx=joy.dx; dy=joy.dy; }
+    else { let l=Math.hypot(dx,dy); if(l>0){dx/=l; dy/=l;} }
+
+    moving=(Math.abs(dx)>0.05||Math.abs(dy)>0.05);
+
+    if(moving){
+        walkT+=dt*7;
+        idleT=0;
+        // Facing: if mostly horizontal, set L/R; if vertical, set F/B
+        let ax=Math.abs(dx), ay=Math.abs(dy);
+        if(ay>ax*0.6){
+            facing=dy<0?'back':'front';
+        } else if(ax>ay*0.6){
+            facing=dx<0?'left':'right';
         }
-        updateUI(); // Ensures UI is populated even if loading fails
+    } else {
+        walkT=0; idleT+=dt;
     }
 
-    document.getElementById('btn-reset').addEventListener('click', () => {
-        if(confirm("Wipe save and restart completely?")) { 
-            try { localStorage.removeItem(SAVE_KEY); } catch(e){} 
-            location.reload(); 
-        }
+    let nx=player.x+dx*player.speed*dt;
+    let ny=player.y+dy*player.speed*dt;
+    if(!collide(nx,player.y,player.size)) player.x=nx;
+    if(!collide(player.x,ny,player.size)) player.y=ny;
+
+    cam.x=Math.max(0,Math.min(Math.floor(player.x-canvas.width/2),WORLD_W-canvas.width));
+    cam.y=Math.max(0,Math.min(Math.floor(player.y-canvas.height/2),WORLD_H-canvas.height));
+
+    closest=null; let minD=55;
+    for(let obj of getInteractables()){
+        let cx2=obj.x+obj.w/2, cy2=obj.y+obj.h/2;
+        let d=Math.hypot(player.x-cx2,player.y-cy2);
+        if(d<minD){ minD=d; closest=obj; }
+    }
+    let inter=keys.e||actPr;
+    if(closest&&inter&&!gs.eHandled){ closest.interact(); gs.eHandled=true; }
+    if(!inter) gs.eHandled=false;
+}
+
+function draw(t){
+    ctx.fillStyle='#0b0f12'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.save(); ctx.translate(-cam.x,-cam.y);
+
+    // World
+    ctx.fillStyle=TILES.grass; ctx.fillRect(0,0,WORLD_W,WORLD_H);
+
+    // Road
+    ctx.fillStyle='#14161e'; ctx.fillRect(190,0,10,WORLD_H);
+    ctx.fillStyle='#1c1e2e'; ctx.fillRect(200,0,120,WORLD_H);
+    ctx.fillStyle='#14161e'; ctx.fillRect(320,0,10,WORLD_H);
+    ctx.fillStyle='#d8c040';
+    for(let i=0;i<WORLD_H;i+=80) ctx.fillRect(258,i,4,40);
+    ctx.fillStyle='rgba(255,255,255,0.015)';
+    for(let i=0;i<WORLD_H;i+=20) ctx.fillRect(200,i,120,10);
+
+    // Houses
+    houseDefs.forEach(h=>{
+        ctx.fillStyle='#14161e'; ctx.fillRect(h.x+h.w,h.y+62,190-(h.x+h.w),38);
+        ctx.fillStyle='#1c1e2e'; ctx.fillRect(h.x+h.w,h.y+58,190-(h.x+h.w),38);
+        bev(h.x,h.y+40,h.w,h.h-40,h.color,'#fff','#1a1c2c');
+        ctx.fillStyle='#2a3050';
+        ctx.beginPath(); ctx.moveTo(h.x-10,h.y+40); ctx.lineTo(h.x+h.w+10,h.y+40); ctx.lineTo(h.x+h.w/2,h.y-20); ctx.fill();
+        ctx.strokeStyle='#1a1c2c'; ctx.lineWidth=3; ctx.stroke();
+        bev(h.x+20,h.y+50,28,20,'#90b8d8','#b0d0e8','#4a6880');
+        bev(h.x+68,h.y+50,28,20,'#90b8d8','#b0d0e8','#4a6880');
+        ctx.fillStyle='rgba(255,255,200,0.08)'; ctx.fillRect(h.x+21,h.y+51,26,9);
+        ctx.fillStyle='rgba(255,255,200,0.08)'; ctx.fillRect(h.x+69,h.y+51,26,9);
+        bev(h.dX,h.dY,22,38,'#6a4828','#b07840','#3a2410');
+        ctx.fillStyle='#c8904a'; ctx.fillRect(h.dX+16,h.dY+18,4,4);
     });
 
-    loadGame(); // Initial boot loader
+    // RV
+    shadow(rv.x+rv.w/2,rv.y+rv.h+8,rv.w/2,12);
+    ctx.fillStyle=TILES.wood; ctx.fillRect(rv.x,rv.y,rv.w,rv.h);
+    ctx.fillStyle='#14161e';
+    ctx.fillRect(rv.x-12,rv.y-12,rv.w+24,12);
+    ctx.fillRect(rv.x-12,rv.y,12,rv.h);
+    ctx.fillRect(rv.x+rv.w,rv.y,12,rv.h);
+    ctx.fillRect(rv.x-12,rv.y+rv.h,118,12);
+    ctx.fillRect(rv.x+158,rv.y+rv.h,108,12);
+    ctx.fillStyle='#b0bcc8';
+    ctx.fillRect(rv.x,rv.y,rv.w,3); ctx.fillRect(rv.x,rv.y,3,rv.h); ctx.fillRect(rv.x+rv.w-3,rv.y,3,rv.h);
+    ctx.fillRect(rv.x,rv.y+rv.h-3,108,3); ctx.fillRect(rv.x+158,rv.y+rv.h-3,108,3);
 
-    // --- INPUT MANAGEMENT ---
-    const touchControls = document.getElementById('touch-controls');
-    let isTouchMode = true; 
-    function setInputMode(mode) {
-        if (isTouchMode === (mode === 'touch')) return;
-        isTouchMode = mode === 'touch';
-        touchControls.style.display = isTouchMode ? 'flex' : 'none';
+    // Grow tent (background layer)
+    drawTent();
+
+    // Y-sort queue
+    // For objects flush against the top wall (bed, sink, pot/tent), use a very low Y
+    // so they always sort BEHIND the player. Only floor items use their real Y.
+    let q=[];
+    q.push({y:bed.y+bed.h*0.3,    draw:()=>bed.draw()});
+    q.push({y:sink.y+sink.h*0.3,  draw:()=>sink.draw()});
+    q.push({y:pot.y+pot.h*0.3,    draw:()=>pot.draw()});
+
+    dropped.forEach(di=>{
+        let s=di.type==='product'?SC.itemProduct:SC.itemSeed;
+        let fy=Math.sin(t/400)*3;
+        q.push({y:di.y, draw:()=>{
+            shadow(di.x,di.y+10,9,3);
+            ctx.drawImage(s.img,di.x-s.w/2,di.y-s.h/2+fy);
+        }});
+    });
+
+    q.push({y:player.y+player.size, draw:()=>{
+        shadow(player.x,player.y+16,13,5);
+        let s=getSprite();
+        if(!s) return; // safety guard
+        let by=moving?Math.abs(Math.sin(walkT*2))*3:Math.sin(idleT*1.8)*1.2-1.2;
+        ctx.drawImage(s.img,player.x-s.w/2,player.y-s.h/2+by);
+    }});
+
+    q.sort((a,b)=>a.y-b.y);
+    q.forEach(o=>o.draw());
+
+    rvDoor.draw();
+
+    // Interaction prompt
+    if(closest&&!phOpen&&!invOpen){
+        let px=closest.x+closest.w/2, py=closest.y-30;
+        let txt=`[E] ${closest.action}`;
+        ctx.font='16px VT323';
+        let tw=ctx.measureText(txt).width+22;
+        ctx.fillStyle='rgba(6,4,16,0.94)';
+        ctx.beginPath(); ctx.roundRect(px-tw/2,py-14,tw,26,5); ctx.fill();
+        ctx.strokeStyle='#c8a870'; ctx.lineWidth=1.5; ctx.stroke();
+        ctx.fillStyle='#f0e8d0'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(txt,px,py);
     }
 
-    window.addEventListener('keydown', (e) => { setInputMode('keyboard'); let k = e.key.toLowerCase(); if(k in keys) keys[k] = true; });
-    window.addEventListener('keyup', (e) => { let k = e.key.toLowerCase(); if(k in keys) keys[k] = false; });
-    window.addEventListener('mousemove', () => setInputMode('keyboard'));
-    window.addEventListener('mousedown', () => setInputMode('keyboard'));
-    window.addEventListener('touchstart', () => setInputMode('touch'), {passive: true});
+    ctx.restore();
 
-    const keys = { w: false, a: false, s: false, d: false, e: false, p: false, i: false };
-    const joystick = { active: false, dx: 0, dy: 0 };
-    let actionPressed = false; let pHandled = false; let iHandled = false;
-    let isPhoneOpen = false; let isInvOpen = false;
-
-    const joyArea = document.getElementById('joystick-area'); const joystickStick = document.getElementById('joystick-stick');
-    let joyRect = null;
-    joyArea.addEventListener('touchstart', (e) => { e.preventDefault(); joyRect = joyArea.getBoundingClientRect(); joystick.active = true; updateJoy(e.touches[0]); }, {passive: false});
-    joyArea.addEventListener('touchmove', (e) => { e.preventDefault(); if(joystick.active) updateJoy(e.touches[0]); }, {passive: false});
-    joyArea.addEventListener('touchend', (e) => { e.preventDefault(); joystick.active = false; joystick.dx = 0; joystick.dy = 0; joystickStick.style.transform = `translate(-50%, -50%)`; });
-    function updateJoy(touch) {
-        if (!joyRect) return;
-        let dx = touch.clientX - (joyRect.left + joyRect.width/2), dy = touch.clientY - (joyRect.top + joyRect.height/2);
-        let dist = Math.hypot(dx, dy); let max = 40; 
-        if (dist > max) { dx = (dx/dist)*max; dy = (dy/dist)*max; }
-        joystickStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-        joystick.dx = dx/max; joystick.dy = dy/max;
+    // Day/night
+    let hour=gs.time/60;
+    let alpha=0,r=8,g=12,b=38;
+    if(hour>=20||hour<=5){alpha=0.88;}
+    else if(hour>18&&hour<20){alpha=((hour-18)/2)*0.88; r=190;g=70;b=25;}
+    else if(hour>5&&hour<7){alpha=0.88-(((hour-5)/2)*0.88); r=200;g=150;b=90;}
+    if(alpha>0){
+        ctx.globalCompositeOperation='multiply';
+        ctx.fillStyle=`rgba(${r},${g},${b},${alpha})`; ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.globalCompositeOperation='screen';
+        let px2=player.x-cam.x, py2=player.y-cam.y;
+        let gr=ctx.createRadialGradient(px2,py2,6,px2,py2,180);
+        gr.addColorStop(0,`rgba(255,225,170,${alpha*0.7})`);
+        gr.addColorStop(0.5,`rgba(255,210,150,${alpha*0.22})`);
+        gr.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=gr; ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.globalCompositeOperation='source-over';
     }
+}
 
-    const actionBtn = document.getElementById('action-btn');
-    actionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); actionPressed = true; actionBtn.classList.add('active'); }, {passive: false});
-    actionBtn.addEventListener('touchend', (e) => { e.preventDefault(); actionPressed = false; actionBtn.classList.remove('active'); });
+function loop(t){
+    if(!t) t=performance.now();
+    let dt=Math.min((t-lastT)/1000,0.1); lastT=t;
+    update(dt); draw(t);
+    requestAnimationFrame(loop);
+}
 
-    // --- MODALS (PHONE & INV) ---
-    document.getElementById('btn-phone').addEventListener('click', togglePhone);
-    document.getElementById('btn-inv').addEventListener('click', toggleInventory);
-
-    function togglePhone() {
-        if(isInvOpen) toggleInventory();
-        isPhoneOpen = !isPhoneOpen;
-        document.getElementById('phone-modal').style.display = isPhoneOpen ? 'flex' : 'none';
-        if(isPhoneOpen) { 
-            openApp('home-view'); 
-            if(gameState.missionIndex === 4) advanceMission(4); // Completes index 4 task immediately
-        }
-    }
-
-    function toggleInventory() {
-        if(isPhoneOpen) togglePhone();
-        isInvOpen = !isInvOpen;
-        document.getElementById('inventory-modal').style.display = isInvOpen ? 'flex' : 'none';
-        updateUI();
-    }
-
-    window.openApp = function(appId) {
-        document.getElementById('home-view').style.display = 'none';
-        document.getElementById('store-view').style.display = 'none';
-        document.getElementById(appId).style.display = appId === 'home-view' ? 'grid' : 'flex';
-        document.getElementById('store-msg').innerText = '';
-    }
-
-    window.buySeed = function() {
-        if (gameState.cash >= 20) {
-            gameState.cash -= 20; gameState.seeds += 1;
-            document.getElementById('store-msg').style.color = '#4CAF50'; document.getElementById('store-msg').innerText = 'Purchase Successful!';
-            updateUI();
-            if (gameState.missionIndex === 5) advanceMission(5); // Completes index 5 task
-        } else {
-            document.getElementById('store-msg').style.color = '#ff5252'; document.getElementById('store-msg').innerText = 'Insufficient Funds.';
-        }
-    }
-
-    window.dropItem = function(type, amount) {
-        if (type === 'product' && gameState.stash >= amount) {
-            gameState.stash -= amount;
-            droppedItems.push({ x: player.x, y: player.y + 15, type: 'product', amount: amount });
-        } else if (type === 'seeds' && gameState.seeds >= amount) {
-            gameState.seeds -= amount;
-            droppedItems.push({ x: player.x, y: player.y + 15, type: 'seeds', amount: amount });
-        }
-        updateUI();
-    }
-
-    // --- TUTORIAL ---
-    const missions = [
-        { text: "Move around using Joystick or WASD.", check: () => (joystick.dx !== 0 || keys.w || keys.a || keys.s || keys.d) },
-        { text: "Walk to the SINK (Top Middle). Press INTERACT/E to fill water." },
-        { text: "Walk to the POT (Top Right). Plant your seed, then water it." },
-        { text: "Wait for it to grow to 100%, then harvest it." },
-        { text: "Open PHONE via Top UI Button or 'P' key." },
-        { text: "Open DarkWeb app and buy 1 Seed for $20." },
-        { text: "Wait for Customer at RV DOOR. Sell 10g for $150." },
-        { text: "Walk to BED (Top Left). Sleep to Save Game." },
-        { text: "Tutorial Complete! Walk outside the RV and hustle." }
-    ];
-
-    function advanceMission(reqIndex) {
-        if (!gameState.tutorialActive) return;
-        if (gameState.missionIndex === reqIndex) {
-            gameState.missionIndex++;
-            if(missions[gameState.missionIndex]) { 
-                ui.mission.innerText = missions[gameState.missionIndex].text; 
-            } else {
-                gameState.tutorialActive = false;
-                ui.missionBox.style.opacity = '0';
-                setTimeout(() => { ui.missionBox.style.display = 'none'; }, 500);
-            }
-        }
-    }
-
-    // --- WORLD & ENTITIES ---
-    const rv = { x: 350, y: 400, w: 220, h: 260 };
-    const player = { x: rv.x + 110, y: rv.y + 150, size: 10, speed: 180 };
-    const worldBounds = { w: WORLD_W, h: WORLD_H };
-    
-    const houseDefs = [
-        { x: 30, y: 150, w: 120, h: 100, dX: 150, dY: 190, idx: 0 },
-        { x: 30, y: 400, w: 120, h: 100, dX: 150, dY: 440, idx: 1 },
-        { x: 30, y: 650, w: 120, h: 100, dX: 150, dY: 690, idx: 2 }
-    ];
-
-    const solids = [
-        ...houseDefs.map(h => ({ x: h.x, y: h.y, w: h.w, h: h.h })),
-        { x: rv.x, y: rv.y, w: rv.w, h: 10 }, 
-        { x: rv.x, y: rv.y, w: 10, h: rv.h }, 
-        { x: rv.x + rv.w - 10, y: rv.y, w: 10, h: rv.h }, 
-        { x: rv.x, y: rv.y + rv.h - 10, w: 85, h: 10 }, 
-        { x: rv.x + 135, y: rv.y + rv.h - 10, w: 85, h: 10 } 
-    ];
-
-    const bed = { x: rv.x + 15, y: rv.y + 15, w: 70, h: 90, action: "Sleep (Saves)",
-        interact() {
-            gameState.day++; gameState.time = 8 * 60;
-            doorData.customerWaiting = Math.random() > 0.4;
-            if(gameState.missionIndex === 7) advanceMission(7);
-            saveGame();
-        },
-        draw() {
-            ctx.fillStyle = '#4a3022'; ctx.fillRect(this.x, this.y, this.w, this.h); 
-            ctx.fillStyle = '#b0b0b0'; ctx.fillRect(this.x+5, this.y+5, this.w-10, this.h-10); 
-            ctx.fillStyle = '#ffffff'; ctx.fillRect(this.x+10, this.y+10, this.w-20, 20); 
-            ctx.fillStyle = '#2c3e50'; ctx.fillRect(this.x+5, this.y+35, this.w-10, this.h-40); 
-        }
-    };
-
-    const sink = { x: rv.x + 95, y: rv.y + 15, w: 50, h: 30, action: "Fill Water",
-        interact() { gameState.water = 100; setDialogue("Watering Can filled."); updateUI(); advanceMission(1); },
-        draw() {
-            ctx.fillStyle = '#95a5a6'; ctx.fillRect(this.x, this.y, this.w, this.h);
-            ctx.fillStyle = '#bdc3c7'; ctx.fillRect(this.x+10, this.y+5, 30, 20);
-            ctx.fillStyle = '#3498db'; ctx.fillRect(this.x+22, this.y, 6, 15);
-        }
-    };
-
-    const pot = { x: rv.x + 160, y: rv.y + 15, w: 45, h: 45,
-        get action() {
-            if (potData.state === 'empty') return `Plant Seed (${gameState.seeds})`;
-            if (potData.state === 'planted') return "Water Plant";
-            if (potData.state === 'growing') return `Growing: ${Math.floor(potData.progress)}%`;
-            return "Harvest Product";
-        },
-        interact() {
-            if (potData.state === 'empty') {
-                if (gameState.seeds > 0) { gameState.seeds--; potData.state = 'planted'; potData.progress = 0; setDialogue("Seed planted. Needs water."); updateUI(); }
-                else setDialogue("No seeds! Buy on phone.");
-            } else if (potData.state === 'planted') {
-                if (gameState.water >= 25) { gameState.water -= 25; potData.state = 'growing'; setDialogue("Plant watered."); updateUI(); advanceMission(2); }
-                else setDialogue("Need water. Use sink.");
-            } else if (potData.state === 'ready') {
-                potData.state = 'empty'; potData.progress = 0; gameState.stash += 10; setDialogue("Harvested 10g."); updateUI(); advanceMission(3);
-                if(gameState.missionIndex === 4) doorData.customerWaiting = true;
-            }
-        },
-        update(dt) {
-            if (potData.state === 'growing') {
-                potData.progress += 6 * dt;
-                if (potData.progress >= 100) { potData.progress = 100; potData.state = 'ready'; setDialogue("Ready to harvest!"); }
-            }
-        },
-        draw() {
-            ctx.fillStyle = '#6b4226'; ctx.fillRect(this.x, this.y, this.w, this.h);
-            ctx.fillStyle = '#3e2723'; ctx.fillRect(this.x+5, this.y+5, this.w-10, this.h-10);
-            
-            if (potData.state === 'planted') {
-                ctx.fillStyle = '#5c4033'; ctx.fillRect(this.x+18, this.y+20, 10, 10);
-                ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(this.x+23, this.y+10, 4, 0, Math.PI*2); ctx.fill();
-            } else if (potData.state === 'growing' || potData.state === 'ready') {
-                let p = potData.progress / 100; 
-                ctx.fillStyle = potData.state === 'ready' ? '#4CAF50' : '#8BC34A';
-                
-                // Detailed Plant Branching
-                ctx.fillRect(this.x + 18, this.y + 40 - (30 * p), 9, 30 * p); // Stem
-                if (p > 0.5) {
-                    ctx.fillRect(this.x + 9, this.y + 25, 9, 9);  // Branch 1
-                    ctx.fillRect(this.x + 27, this.y + 15, 9, 9); // Branch 2
-                }
-            }
-        }
-    };
-
-    const rvDoor = { x: rv.x + 85, y: rv.y + rv.h - 20, w: 50, h: 20,
-        get action() { return doorData.customerWaiting ? "Sell 10g ($150)" : "Door (No one)"; },
-        interact() {
-            if (doorData.customerWaiting) {
-                if (gameState.stash >= 10) {
-                    gameState.stash -= 10; gameState.cash += 150; doorData.customerWaiting = false; 
-                    setDialogue("Sold 10g for $150!"); updateUI(); advanceMission(6);
-                } else setDialogue("Need 10g product.");
-            }
-        },
-        draw() {
-            if (doorData.customerWaiting) { ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(this.x + 25, this.y + 35, 8, 0, Math.PI * 2); ctx.fill(); }
-        }
-    };
-
-    function getInteractables() {
-        let list = [bed, sink, pot, rvDoor];
-
-        houseDefs.forEach((h, i) => {
-            list.push({
-                x: h.dX, y: h.dY, w: 20, h: 30,
-                get action() { return housesData[i].state === 'ready' ? "Knock on Door" : "No Answer"; },
-                interact() {
-                    if (housesData[i].state !== 'ready') return;
-                    let r = Math.random();
-                    if (r < 0.25) { setDialogue("No one answered."); }
-                    else if (r < 0.55) { setDialogue("Not interested! Get lost."); }
-                    else {
-                        if (gameState.stash >= 10) { gameState.stash -= 10; gameState.cash += 150; setDialogue("Sold 10g for $150. Nice."); updateUI(); }
-                        else { setDialogue("They want 10g, but you don't have enough product."); }
-                    }
-                    housesData[i].state = 'cooldown'; housesData[i].timer = 8 * 60;
-                }
-            });
-        });
-
-        droppedItems.forEach((di, index) => {
-            list.push({
-                x: di.x - 10, y: di.y - 10, w: 20, h: 20,
-                action: `Pick up ${di.amount} ${di.type}`,
-                interact() {
-                    if(di.type === 'seeds') gameState.seeds += di.amount;
-                    if(di.type === 'product') gameState.stash += di.amount;
-                    droppedItems.splice(index, 1);
-                    setDialogue(`Picked up ${di.amount} ${di.type}.`);
-                    updateUI();
-                }
-            });
-        });
-
-        return list;
-    }
-
-    let closestObj = null;
-
-    function checkCollision(nx, ny, size) {
-        let pL = nx - size, pR = nx + size, pT = ny - size, pB = ny + size;
-        if (pL < 0 || pR > WORLD_W || pT < 0 || pB > WORLD_H) return true;
-        for (let b of solids) {
-            if (pR > b.x && pL < b.x + b.w && pB > b.y && pT < b.y + b.h) return true;
-        }
-        return false;
-    }
-
-    // --- GAME LOOP ---
-    let lastTime = performance.now();
-
-    function updateLogic(dt) {
-        if(isPhoneOpen || isInvOpen) return;
-
-        gameState.time += gameState.timeSpeed * dt;
-        if (gameState.time >= 24 * 60) { gameState.day++; gameState.time = 0; }
-        
-        let hrs = Math.floor(gameState.time / 60).toString().padStart(2, '0');
-        let mins = Math.floor(gameState.time % 60).toString().padStart(2, '0');
-        ui.time.innerText = `${hrs}:${mins}`; ui.phoneClock.innerText = `${hrs}:${mins}`;
-        ui.day.innerText = gameState.day;
-
-        pot.update(dt);
-
-        housesData.forEach(h => {
-            if (h.state === 'cooldown') {
-                h.timer -= gameState.timeSpeed * dt;
-                if (h.timer <= 0) h.state = 'ready';
-            }
-        });
-
-        if (keys.p && !pHandled) { togglePhone(); pHandled = true; }
-        if (!keys.p) pHandled = false;
-        if (keys.i && !iHandled) { toggleInventory(); iHandled = true; }
-        if (!keys.i) iHandled = false;
-
-        if (gameState.tutorialActive && missions[gameState.missionIndex] && gameState.missionIndex === 0) {
-            if (missions[0].check()) advanceMission(0);
-        }
-
-        let dx = 0, dy = 0;
-        if (keys.w) dy -= 1; if (keys.s) dy += 1;
-        if (keys.a) dx -= 1; if (keys.d) dx += 1;
-        if (dx === 0 && dy === 0) { dx = joystick.dx; dy = joystick.dy; } 
-        else { let l = Math.hypot(dx, dy); dx /= l; dy /= l; }
-
-        let nx = player.x + (dx * player.speed * dt);
-        let ny = player.y + (dy * player.speed * dt);
-
-        if (!checkCollision(nx, player.y, player.size)) player.x = nx;
-        if (!checkCollision(player.x, ny, player.size)) player.y = ny;
-
-        camera.x = Math.floor(player.x - canvas.width / 2);
-        camera.y = Math.floor(player.y - canvas.height / 2);
-        camera.x = Math.max(0, Math.min(camera.x, WORLD_W - canvas.width));
-        camera.y = Math.max(0, Math.min(camera.y, WORLD_H - canvas.height));
-
-        closestObj = null; let minDist = 40;
-        const currentInteractables = getInteractables();
-        for (let obj of currentInteractables) {
-            let cx = obj.x + obj.w / 2, cy = obj.y + obj.h / 2;
-            let dist = Math.hypot(player.x - cx, player.y - cy);
-            if (dist < minDist) { minDist = dist; closestObj = obj; }
-        }
-
-        let isInteracting = keys.e || actionPressed;
-        if (closestObj && isInteracting && !gameState.eHandled) { closestObj.interact(); gameState.eHandled = true; }
-        if (!isInteracting) gameState.eHandled = false;
-    }
-
-    function drawScene() {
-        ctx.fillStyle = '#1e2b17'; ctx.fillRect(0, 0, canvas.width, canvas.height); 
-        ctx.save(); ctx.translate(-camera.x, -camera.y);
-        ctx.fillStyle = '#2a3b22'; ctx.fillRect(0, 0, WORLD_W, WORLD_H);
-
-        // Road logic
-        ctx.fillStyle = '#444'; ctx.fillRect(170, 0, 10, WORLD_H); 
-        ctx.fillStyle = '#333'; ctx.fillRect(180, 0, 100, WORLD_H); 
-        ctx.fillStyle = '#444'; ctx.fillRect(280, 0, 10, WORLD_H); 
-        ctx.fillStyle = '#e67e22';
-        for(let i=0; i<WORLD_H; i+=60) ctx.fillRect(228, i, 4, 30);
-
-        houseDefs.forEach(h => {
-            ctx.fillStyle = '#444'; ctx.fillRect(h.x + h.w, h.y + 40, 170 - (h.x + h.w), 30);
-            ctx.fillStyle = '#8d6e63'; ctx.fillRect(h.x, h.y, h.w, h.h);
-            ctx.strokeStyle = '#3e2723'; ctx.lineWidth = 4; ctx.strokeRect(h.x, h.y, h.w, h.h);
-            ctx.fillStyle = '#5d4037'; ctx.fillRect(h.x+10, h.y+10, h.w-20, h.h-20);
-            ctx.fillStyle = '#212121'; ctx.fillRect(h.dX, h.dY, 10, 20);
-        });
-
-        // RV Floor
-        ctx.fillStyle = '#c5b59a'; ctx.fillRect(rv.x, rv.y, rv.w, rv.h);
-        ctx.strokeStyle = '#b0a086'; ctx.lineWidth = 2;
-        for(let i = rv.x + 40; i < rv.x + rv.w; i += 40) { ctx.beginPath(); ctx.moveTo(i, rv.y); ctx.lineTo(i, rv.y + rv.h); ctx.stroke(); }
-        ctx.strokeStyle = '#222'; ctx.lineWidth = 6;
-        
-        ctx.beginPath();
-        ctx.moveTo(rv.x, rv.y + rv.h); ctx.lineTo(rv.x, rv.y); ctx.lineTo(rv.x + rv.w, rv.y); ctx.lineTo(rv.x + rv.w, rv.y + rv.h);
-        ctx.lineTo(rv.x + 135, rv.y + rv.h); ctx.moveTo(rv.x + 85, rv.y + rv.h); ctx.lineTo(rv.x, rv.y + rv.h);
-        ctx.stroke();
-
-        droppedItems.forEach(di => {
-            ctx.fillStyle = di.type === 'product' ? '#4CAF50' : '#8B4513';
-            ctx.beginPath(); ctx.arc(di.x, di.y, 6, 0, Math.PI*2); ctx.fill();
-            ctx.strokeStyle = '#000'; ctx.lineWidth=1; ctx.stroke();
-        });
-
-        bed.draw(); sink.draw(); pot.draw(); rvDoor.draw();
-
-        // Player
-        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.arc(player.x, player.y + 10, 12, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#3498db'; ctx.fillRect(player.x - 10, player.y - 8, 20, 16);
-        ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.arc(player.x, player.y - 12, 10, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#8e44ad'; ctx.fillRect(player.x - 8, player.y - 10, 16, 8);
-
-        // Interaction Hover Prompt
-        if (closestObj && !isPhoneOpen && !isInvOpen) {
-            let textY = closestObj.y - 15;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; ctx.fillRect(closestObj.x + closestObj.w/2 - 70, textY - 12, 140, 20);
-            ctx.fillStyle = '#000'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(`[E] ${closestObj.action}`, closestObj.x + closestObj.w/2, textY - 1);
-        }
-        ctx.restore();
-
-        // Day/Night System
-        let hour = gameState.time / 60; let alpha = 0;
-        if (hour >= 20 || hour <= 6) alpha = 0.85; 
-        else if (hour > 18 && hour < 20) alpha = ((hour - 18) / 2) * 0.85; 
-        else if (hour > 6 && hour < 8) alpha = 0.85 - (((hour - 6) / 2) * 0.85);
-
-        if (alpha > 0) {
-            let screenPlayerX = player.x - camera.x;
-            let screenPlayerY = player.y - camera.y;
-            let grad = ctx.createRadialGradient(screenPlayerX, screenPlayerY, 40, screenPlayerX, screenPlayerY, 180);
-            grad.addColorStop(0, `rgba(5, 5, 20, 0)`); grad.addColorStop(0.6, `rgba(5, 5, 20, ${alpha * 0.6})`); grad.addColorStop(1, `rgba(5, 5, 20, ${alpha})`); 
-            ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-    }
-
-    function gameLoop(time) {
-        if (!time) time = performance.now();
-        let dt = (time - lastTime) / 1000; lastTime = time;
-        if (dt > 0.1) dt = 0.1; 
-        updateLogic(dt); drawScene(); requestAnimationFrame(gameLoop);
-    }
-
-    // Initialize Game Intro
-    if (gameState.tutorialActive && missions[gameState.missionIndex]) { 
-        ui.mission.innerText = missions[gameState.missionIndex].text; 
-        setDialogue("Welcome to the RV. Let's get to work.");
-    } else {
-        setDialogue("Welcome back.");
-    }
-    
-    requestAnimationFrame(gameLoop);
-
+updateUI();
+if(gs.tutActive&&missions[gs.missionIdx]) ui.mission.innerText=missions[gs.missionIdx].text;
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
