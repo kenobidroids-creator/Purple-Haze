@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Schedule I: Open World</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+
+        body {
+            margin: 0; padding: 0; background-color: #080b06; color: #fff;
+            font-family: "Courier New", Courier, monospace;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden; touch-action: none;
+        }
+
+        #game-container {
+            position: relative; width: 100%; max-width: 500px; height: 100%; max-height: 850px;
+            background: #1a2415; box-shadow: 0 0 20px rgba(0,0,0,0.8); overflow: hidden;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+
+        /* --- UI Overlay --- */
+        #ui-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
+
+        .top-bar {
+            position: absolute; top: 0; left: 0; right: 0; background: rgba(0, 0, 0, 0.95);
+            padding: 8px 12px; font-size: 11px; border-bottom: 2px solid #333;
+            display: flex; flex-direction: column; gap: 8px; font-weight: bold; pointer-events: auto; z-index: 10;
+        }
+
+        .top-row { display: flex; justify-content: space-between; align-items: center; }
+        .stats-text { color: #aaa; font-size: 10px; }
+        .highlight { color: #4CAF50; } .stash-text { color: #FF9800; } .water-text { color: #3498db; }
+        
+        .ui-btn {
+            background: #222; color: white; border: 1px solid #555; padding: 5px 8px;
+            font-family: inherit; font-size: 10px; font-weight: bold; border-radius: 4px; cursor: pointer;
+        }
+        .ui-btn:active { background: #444; }
+        #btn-phone { background: #004d40; border-color: #00897b; }
+        #btn-inv { background: #4a148c; border-color: #7b1fa2; }
+        #btn-reset { background: #8e0000; border-color: #e53935; }
+
+        #mission-tracker {
+            position: absolute; top: 75px; left: 10px; right: 10px; background: rgba(0, 30, 60, 0.9);
+            padding: 10px; border: 2px solid #00aaff; font-size: 11px; line-height: 1.4; transition: opacity 0.5s; z-index: 5;
+        }
+
+        #dialogue-box {
+            position: absolute; bottom: 130px; left: 10px; right: 10px; background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #fff; padding: 12px; font-size: 12px; line-height: 1.4; min-height: 50px; 
+            transition: opacity 0.5s; z-index: 5; opacity: 0; /* Starts hidden until text triggered */
+        }
+
+        /* --- Touch Controls --- */
+        #touch-controls {
+            position: absolute; bottom: 0; left: 0; right: 0; height: 120px; pointer-events: auto;
+            display: flex; justify-content: space-between; align-items: center; padding: 0 20px; transition: opacity 0.2s;
+        }
+        #joystick-area { position: relative; width: 100px; height: 100px; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 50%; }
+        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.7); border-radius: 50%; transform: translate(-50%, -50%); }
+        .circle-btn { width: 70px; height: 70px; border-radius: 50%; color: #fff; font-weight: bold; font-size: 11px; display: flex; justify-content: center; align-items: center; text-align: center; border: 2px solid rgba(255, 50, 50, 0.8); background: rgba(255, 50, 50, 0.4); pointer-events: auto; }
+        .circle-btn:active, .circle-btn.active { background: rgba(255, 50, 50, 0.8); }
+
+        /* --- Modals (Phone & Inventory) --- */
+        .modal {
+            position: absolute; top: 10%; left: 10%; right: 10%; bottom: 15%; background: #111;
+            border: 4px solid #333; border-radius: 15px; display: none; flex-direction: column; overflow: hidden;
+            pointer-events: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.9); z-index: 100;
+        }
+        
+        .modal-header { background: #222; padding: 10px; text-align: center; font-size: 12px; font-weight: bold; border-bottom: 2px solid #444; }
+        .modal-screen { flex: 1; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #0a0a0a; overflow-y: auto; }
+        .modal-close-btn { background: #222; padding: 12px; text-align: center; cursor: pointer; border-top: 2px solid #444; font-size: 12px; font-weight: bold;}
+        .modal-close-btn:active { background: #444; }
+
+        /* Phone Specifics */
+        .app-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .app-icon { background: #333; border-radius: 12px; padding: 15px 5px; text-align: center; font-size: 11px; cursor: pointer; border: 2px solid transparent; }
+        .app-icon.store { background: #2e7d32; border-color: #4CAF50; }
+        .app-icon.locked { background: #444; color: #888; }
+        #store-view { display: none; flex-direction: column; height: 100%; justify-content: space-between; }
+        .store-item { background: #222; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #444; }
+        .action-btn { background: #4CAF50; color: white; border: none; padding: 10px; width: 100%; border-radius: 5px; font-weight: bold; margin-top: 10px; font-family: inherit; cursor: pointer;}
+        .action-btn:active { background: #388E3C; }
+
+        /* Inventory Specifics */
+        .inv-item { background: #1a1a1a; border: 1px solid #444; padding: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .drop-btn { background: #d32f2f; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-family: inherit; cursor: pointer; font-size: 10px; font-weight: bold;}
+        .drop-btn:active { background: #b71c1c; }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="400" height="700"></canvas>
+    
+    <div id="ui-layer">
+        <div class="top-bar">
+            <div class="top-row">
+                <div>$<span id="ui-cash" class="highlight">0</span> | <span id="ui-stash" class="stash-text">0</span>g</div>
+                <div>DAY <span id="ui-day">1</span> - <span id="ui-time">08:00</span></div>
+            </div>
+            <div class="top-row stats-text">
+                <div>SEEDS: <span id="ui-seeds">0</span> | WATER: <span id="ui-water" class="water-text">0</span>%</div>
+                <div style="display: flex; gap: 5px;">
+                    <button id="btn-inv" class="ui-btn">👜 INV (I)</button>
+                    <button id="btn-phone" class="ui-btn">📱 PHONE (P)</button>
+                    <button id="btn-reset" class="ui-btn">RESET</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="mission-tracker">
+            <div style="color: #00aaff; margin-bottom: 5px;">TASK:</div>
+            <div id="ui-mission">Loading...</div>
+        </div>
+        
+        <div id="dialogue-box">
+            <span id="ui-dialogue"></span>
+        </div>
+    </div>
+
+    <div id="touch-controls">
+        <div id="joystick-area"><div id="joystick-stick"></div></div>
+        <div id="action-btn" class="circle-btn">INTERACT<br>(E)</div>
+    </div>
+
+    <!-- Phone Modal -->
+    <div id="phone-modal" class="modal">
+        <div class="modal-header">iTrapOS 1.0 <span style="float:right;" id="phone-clock">08:00</span></div>
+        <div class="modal-screen">
+            <div id="home-view" class="app-grid">
+                <div class="app-icon store" onclick="openApp('store-view')">🛒<br><br>DarkWeb</div>
+                <div class="app-icon locked">💬<br><br>Texts</div>
+                <div class="app-icon locked">📍<br><br>Map</div>
+            </div>
+            <div id="store-view">
+                <div>
+                    <h3 style="margin: 0 0 10px 0; color:#4CAF50; text-align:center;">DarkWeb Seeds</h3>
+                    <div class="store-item">
+                        <strong>OG Kush Seed</strong><br><br>$20.00
+                        <button class="action-btn" onclick="buySeed()">PURCHASE</button>
+                        <div id="store-msg" style="margin-top:10px; font-size:10px; color:#ff5252;"></div>
+                    </div>
+                </div>
+                <div style="text-align: center; font-size: 11px; color:#aaa;">Delivered instantly via drone.</div>
+            </div>
+        </div>
+        <div class="modal-close-btn" onclick="togglePhone()">CLOSE PHONE</div>
+    </div>
+
+    <!-- Inventory Modal -->
+    <div id="inventory-modal" class="modal">
+        <div class="modal-header">BACKPACK</div>
+        <div class="modal-screen">
+            <div class="inv-item">
+                <div>🌿 Product: <span id="inv-stash" class="stash-text">0</span>g</div>
+                <button class="drop-btn" onclick="dropItem('product', 10)">DROP 10g</button>
+            </div>
+            <div class="inv-item">
+                <div>🌰 Seeds: <span id="inv-seeds">0</span></div>
+                <button class="drop-btn" onclick="dropItem('seeds', 1)">DROP 1</button>
+            </div>
+        </div>
+        <div class="modal-close-btn" onclick="toggleInventory()">CLOSE INVENTORY</div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI Elements Mapping
+    const ui = {
+        cash: document.getElementById('ui-cash'), stash: document.getElementById('ui-stash'),
+        seeds: document.getElementById('ui-seeds'), water: document.getElementById('ui-water'),
+        time: document.getElementById('ui-time'), day: document.getElementById('ui-day'),
+        mission: document.getElementById('ui-mission'), dialogue: document.getElementById('ui-dialogue'),
+        missionBox: document.getElementById('mission-tracker'), dialogueBox: document.getElementById('dialogue-box'),
+        phoneClock: document.getElementById('phone-clock'),
+        invStash: document.getElementById('inv-stash'), invSeeds: document.getElementById('inv-seeds')
+    };
+
+    // --- GAME STATE ---
+    let gameState = {
+        cash: 20, stash: 0, seeds: 1, water: 0, day: 1, time: 8 * 60, timeSpeed: 10, missionIndex: 0, tutorialActive: true
+    };
+    let potData = { state: 'empty', progre
