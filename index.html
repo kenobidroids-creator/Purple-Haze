@@ -51,7 +51,7 @@
         #dialogue-box {
             position: absolute; bottom: 130px; left: 10px; right: 10px; background: rgba(0, 0, 0, 0.95);
             border: 2px solid #fff; padding: 12px; font-size: 12px; line-height: 1.4; min-height: 50px; 
-            transition: opacity 0.5s; z-index: 5; opacity: 0; /* Starts hidden until text triggered */
+            transition: opacity 0.5s; z-index: 5; opacity: 0; pointer-events: none;
         }
 
         /* --- Touch Controls --- */
@@ -76,7 +76,6 @@
         .modal-close-btn { background: #222; padding: 12px; text-align: center; cursor: pointer; border-top: 2px solid #444; font-size: 12px; font-weight: bold;}
         .modal-close-btn:active { background: #444; }
 
-        /* Phone Specifics */
         .app-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .app-icon { background: #333; border-radius: 12px; padding: 15px 5px; text-align: center; font-size: 11px; cursor: pointer; border: 2px solid transparent; }
         .app-icon.store { background: #2e7d32; border-color: #4CAF50; }
@@ -86,7 +85,6 @@
         .action-btn { background: #4CAF50; color: white; border: none; padding: 10px; width: 100%; border-radius: 5px; font-weight: bold; margin-top: 10px; font-family: inherit; cursor: pointer;}
         .action-btn:active { background: #388E3C; }
 
-        /* Inventory Specifics */
         .inv-item { background: #1a1a1a; border: 1px solid #444; padding: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .drop-btn { background: #d32f2f; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-family: inherit; cursor: pointer; font-size: 10px; font-weight: bold;}
         .drop-btn:active { background: #b71c1c; }
@@ -129,7 +127,7 @@
         <div id="action-btn" class="circle-btn">INTERACT<br>(E)</div>
     </div>
 
-    <!-- Phone Modal -->
+    <!-- Modals -->
     <div id="phone-modal" class="modal">
         <div class="modal-header">iTrapOS 1.0 <span style="float:right;" id="phone-clock">08:00</span></div>
         <div class="modal-screen">
@@ -153,7 +151,6 @@
         <div class="modal-close-btn" onclick="togglePhone()">CLOSE PHONE</div>
     </div>
 
-    <!-- Inventory Modal -->
     <div id="inventory-modal" class="modal">
         <div class="modal-header">BACKPACK</div>
         <div class="modal-screen">
@@ -174,7 +171,7 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // UI Elements Mapping
+    // DOM UI Mapping
     const ui = {
         cash: document.getElementById('ui-cash'), stash: document.getElementById('ui-stash'),
         seeds: document.getElementById('ui-seeds'), water: document.getElementById('ui-water'),
@@ -186,7 +183,492 @@
     };
 
     // --- GAME STATE ---
-    let gameState = {
-        cash: 20, stash: 0, seeds: 1, water: 0, day: 1, time: 8 * 60, timeSpeed: 10, missionIndex: 0, tutorialActive: true
+    let gameState = { cash: 20, stash: 0, seeds: 1, water: 0, day: 1, time: 8 * 60, timeSpeed: 10, missionIndex: 0, tutorialActive: true };
+    let potData = { state: 'empty', progress: 0 };
+    let doorData = { customerWaiting: false };
+    let housesData = [ { state: 'ready', timer: 0 }, { state: 'ready', timer: 0 }, { state: 'ready', timer: 0 } ];
+    let droppedItems = []; 
+
+    const WORLD_W = 1000; const WORLD_H = 1000;
+    let camera = { x: 0, y: 0 };
+
+    function updateUI() {
+        if(!ui.cash) return; // safety check
+        ui.cash.innerText = gameState.cash; ui.stash.innerText = gameState.stash;
+        ui.seeds.innerText = gameState.seeds; ui.water.innerText = gameState.water;
+        ui.invStash.innerText = gameState.stash; ui.invSeeds.innerText = gameState.seeds;
+    }
+
+    // Dialogue System (Self-Closing)
+    let dialogueTimeout = null;
+    function setDialogue(text) {
+        ui.dialogue.innerHTML = text;
+        ui.dialogueBox.style.opacity = '1';
+        
+        if (dialogueTimeout) clearTimeout(dialogueTimeout);
+        dialogueTimeout = setTimeout(() => {
+            ui.dialogueBox.style.opacity = '0';
+        }, 3500); // Fades out cleanly after 3.5 seconds
+    }
+
+    // --- PROTECTED SAVE / LOAD SYSTEM ---
+    const SAVE_KEY = 'schedule_i_save_v5'; // Bumped key to ignore old corrupt data
+    
+    function saveGame() {
+        try {
+            localStorage.setItem(SAVE_KEY, JSON.stringify({ gameState, potData, doorData, housesData, droppedItems }));
+            setDialogue("Game Saved. Progress stored.");
+        } catch (e) {
+            console.warn("Storage Blocked or Full.");
+            setDialogue("Could not save to browser storage.");
+        }
+    }
+
+    function loadGame() {
+        try {
+            const rawData = localStorage.getItem(SAVE_KEY);
+            if (rawData) {
+                const data = JSON.parse(rawData);
+                if (data.gameState) Object.assign(gameState, data.gameState);
+                if (data.potData) Object.assign(potData, data.potData);
+                if (data.doorData) Object.assign(doorData, data.doorData);
+                if (data.housesData && Array.isArray(data.housesData)) housesData = data.housesData;
+                if (data.droppedItems && Array.isArray(data.droppedItems)) droppedItems = data.droppedItems;
+
+                if (!gameState.tutorialActive) ui.missionBox.style.display = 'none';
+            }
+        } catch (e) {
+            console.warn("Save Error or Storage Blocked. Loading default state.");
+        }
+        updateUI(); // Ensures UI is populated even if loading fails
+    }
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+        if(confirm("Wipe save and restart completely?")) { 
+            try { localStorage.removeItem(SAVE_KEY); } catch(e){} 
+            location.reload(); 
+        }
+    });
+
+    loadGame(); // Initial boot loader
+
+    // --- INPUT MANAGEMENT ---
+    const touchControls = document.getElementById('touch-controls');
+    let isTouchMode = true; 
+    function setInputMode(mode) {
+        if (isTouchMode === (mode === 'touch')) return;
+        isTouchMode = mode === 'touch';
+        touchControls.style.display = isTouchMode ? 'flex' : 'none';
+    }
+
+    window.addEventListener('keydown', (e) => { setInputMode('keyboard'); let k = e.key.toLowerCase(); if(k in keys) keys[k] = true; });
+    window.addEventListener('keyup', (e) => { let k = e.key.toLowerCase(); if(k in keys) keys[k] = false; });
+    window.addEventListener('mousemove', () => setInputMode('keyboard'));
+    window.addEventListener('mousedown', () => setInputMode('keyboard'));
+    window.addEventListener('touchstart', () => setInputMode('touch'), {passive: true});
+
+    const keys = { w: false, a: false, s: false, d: false, e: false, p: false, i: false };
+    const joystick = { active: false, dx: 0, dy: 0 };
+    let actionPressed = false; let pHandled = false; let iHandled = false;
+    let isPhoneOpen = false; let isInvOpen = false;
+
+    const joyArea = document.getElementById('joystick-area'); const joystickStick = document.getElementById('joystick-stick');
+    let joyRect = null;
+    joyArea.addEventListener('touchstart', (e) => { e.preventDefault(); joyRect = joyArea.getBoundingClientRect(); joystick.active = true; updateJoy(e.touches[0]); }, {passive: false});
+    joyArea.addEventListener('touchmove', (e) => { e.preventDefault(); if(joystick.active) updateJoy(e.touches[0]); }, {passive: false});
+    joyArea.addEventListener('touchend', (e) => { e.preventDefault(); joystick.active = false; joystick.dx = 0; joystick.dy = 0; joystickStick.style.transform = `translate(-50%, -50%)`; });
+    function updateJoy(touch) {
+        if (!joyRect) return;
+        let dx = touch.clientX - (joyRect.left + joyRect.width/2), dy = touch.clientY - (joyRect.top + joyRect.height/2);
+        let dist = Math.hypot(dx, dy); let max = 40; 
+        if (dist > max) { dx = (dx/dist)*max; dy = (dy/dist)*max; }
+        joystickStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        joystick.dx = dx/max; joystick.dy = dy/max;
+    }
+
+    const actionBtn = document.getElementById('action-btn');
+    actionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); actionPressed = true; actionBtn.classList.add('active'); }, {passive: false});
+    actionBtn.addEventListener('touchend', (e) => { e.preventDefault(); actionPressed = false; actionBtn.classList.remove('active'); });
+
+    // --- MODALS (PHONE & INV) ---
+    document.getElementById('btn-phone').addEventListener('click', togglePhone);
+    document.getElementById('btn-inv').addEventListener('click', toggleInventory);
+
+    function togglePhone() {
+        if(isInvOpen) toggleInventory();
+        isPhoneOpen = !isPhoneOpen;
+        document.getElementById('phone-modal').style.display = isPhoneOpen ? 'flex' : 'none';
+        if(isPhoneOpen) { 
+            openApp('home-view'); 
+            if(gameState.missionIndex === 4) advanceMission(4); // Completes index 4 task immediately
+        }
+    }
+
+    function toggleInventory() {
+        if(isPhoneOpen) togglePhone();
+        isInvOpen = !isInvOpen;
+        document.getElementById('inventory-modal').style.display = isInvOpen ? 'flex' : 'none';
+        updateUI();
+    }
+
+    window.openApp = function(appId) {
+        document.getElementById('home-view').style.display = 'none';
+        document.getElementById('store-view').style.display = 'none';
+        document.getElementById(appId).style.display = appId === 'home-view' ? 'grid' : 'flex';
+        document.getElementById('store-msg').innerText = '';
+    }
+
+    window.buySeed = function() {
+        if (gameState.cash >= 20) {
+            gameState.cash -= 20; gameState.seeds += 1;
+            document.getElementById('store-msg').style.color = '#4CAF50'; document.getElementById('store-msg').innerText = 'Purchase Successful!';
+            updateUI();
+            if (gameState.missionIndex === 5) advanceMission(5); // Completes index 5 task
+        } else {
+            document.getElementById('store-msg').style.color = '#ff5252'; document.getElementById('store-msg').innerText = 'Insufficient Funds.';
+        }
+    }
+
+    window.dropItem = function(type, amount) {
+        if (type === 'product' && gameState.stash >= amount) {
+            gameState.stash -= amount;
+            droppedItems.push({ x: player.x, y: player.y + 15, type: 'product', amount: amount });
+        } else if (type === 'seeds' && gameState.seeds >= amount) {
+            gameState.seeds -= amount;
+            droppedItems.push({ x: player.x, y: player.y + 15, type: 'seeds', amount: amount });
+        }
+        updateUI();
+    }
+
+    // --- TUTORIAL ---
+    const missions = [
+        { text: "Move around using Joystick or WASD.", check: () => (joystick.dx !== 0 || keys.w || keys.a || keys.s || keys.d) },
+        { text: "Walk to the SINK (Top Middle). Press INTERACT/E to fill water." },
+        { text: "Walk to the POT (Top Right). Plant your seed, then water it." },
+        { text: "Wait for it to grow to 100%, then harvest it." },
+        { text: "Open PHONE via Top UI Button or 'P' key." },
+        { text: "Open DarkWeb app and buy 1 Seed for $20." },
+        { text: "Wait for Customer at RV DOOR. Sell 10g for $150." },
+        { text: "Walk to BED (Top Left). Sleep to Save Game." },
+        { text: "Tutorial Complete! Walk outside the RV and hustle." }
+    ];
+
+    function advanceMission(reqIndex) {
+        if (!gameState.tutorialActive) return;
+        if (gameState.missionIndex === reqIndex) {
+            gameState.missionIndex++;
+            if(missions[gameState.missionIndex]) { 
+                ui.mission.innerText = missions[gameState.missionIndex].text; 
+            } else {
+                gameState.tutorialActive = false;
+                ui.missionBox.style.opacity = '0';
+                setTimeout(() => { ui.missionBox.style.display = 'none'; }, 500);
+            }
+        }
+    }
+
+    // --- WORLD & ENTITIES ---
+    const rv = { x: 350, y: 400, w: 220, h: 260 };
+    const player = { x: rv.x + 110, y: rv.y + 150, size: 10, speed: 180 };
+    const worldBounds = { w: WORLD_W, h: WORLD_H };
+    
+    const houseDefs = [
+        { x: 30, y: 150, w: 120, h: 100, dX: 150, dY: 190, idx: 0 },
+        { x: 30, y: 400, w: 120, h: 100, dX: 150, dY: 440, idx: 1 },
+        { x: 30, y: 650, w: 120, h: 100, dX: 150, dY: 690, idx: 2 }
+    ];
+
+    const solids = [
+        ...houseDefs.map(h => ({ x: h.x, y: h.y, w: h.w, h: h.h })),
+        { x: rv.x, y: rv.y, w: rv.w, h: 10 }, 
+        { x: rv.x, y: rv.y, w: 10, h: rv.h }, 
+        { x: rv.x + rv.w - 10, y: rv.y, w: 10, h: rv.h }, 
+        { x: rv.x, y: rv.y + rv.h - 10, w: 85, h: 10 }, 
+        { x: rv.x + 135, y: rv.y + rv.h - 10, w: 85, h: 10 } 
+    ];
+
+    const bed = { x: rv.x + 15, y: rv.y + 15, w: 70, h: 90, action: "Sleep (Saves)",
+        interact() {
+            gameState.day++; gameState.time = 8 * 60;
+            doorData.customerWaiting = Math.random() > 0.4;
+            if(gameState.missionIndex === 7) advanceMission(7);
+            saveGame();
+        },
+        draw() {
+            ctx.fillStyle = '#4a3022'; ctx.fillRect(this.x, this.y, this.w, this.h); 
+            ctx.fillStyle = '#b0b0b0'; ctx.fillRect(this.x+5, this.y+5, this.w-10, this.h-10); 
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(this.x+10, this.y+10, this.w-20, 20); 
+            ctx.fillStyle = '#2c3e50'; ctx.fillRect(this.x+5, this.y+35, this.w-10, this.h-40); 
+        }
     };
-    let potData = { state: 'empty', progre
+
+    const sink = { x: rv.x + 95, y: rv.y + 15, w: 50, h: 30, action: "Fill Water",
+        interact() { gameState.water = 100; setDialogue("Watering Can filled."); updateUI(); advanceMission(1); },
+        draw() {
+            ctx.fillStyle = '#95a5a6'; ctx.fillRect(this.x, this.y, this.w, this.h);
+            ctx.fillStyle = '#bdc3c7'; ctx.fillRect(this.x+10, this.y+5, 30, 20);
+            ctx.fillStyle = '#3498db'; ctx.fillRect(this.x+22, this.y, 6, 15);
+        }
+    };
+
+    const pot = { x: rv.x + 160, y: rv.y + 15, w: 45, h: 45,
+        get action() {
+            if (potData.state === 'empty') return `Plant Seed (${gameState.seeds})`;
+            if (potData.state === 'planted') return "Water Plant";
+            if (potData.state === 'growing') return `Growing: ${Math.floor(potData.progress)}%`;
+            return "Harvest Product";
+        },
+        interact() {
+            if (potData.state === 'empty') {
+                if (gameState.seeds > 0) { gameState.seeds--; potData.state = 'planted'; potData.progress = 0; setDialogue("Seed planted. Needs water."); updateUI(); }
+                else setDialogue("No seeds! Buy on phone.");
+            } else if (potData.state === 'planted') {
+                if (gameState.water >= 25) { gameState.water -= 25; potData.state = 'growing'; setDialogue("Plant watered."); updateUI(); advanceMission(2); }
+                else setDialogue("Need water. Use sink.");
+            } else if (potData.state === 'ready') {
+                potData.state = 'empty'; potData.progress = 0; gameState.stash += 10; setDialogue("Harvested 10g."); updateUI(); advanceMission(3);
+                if(gameState.missionIndex === 4) doorData.customerWaiting = true;
+            }
+        },
+        update(dt) {
+            if (potData.state === 'growing') {
+                potData.progress += 6 * dt;
+                if (potData.progress >= 100) { potData.progress = 100; potData.state = 'ready'; setDialogue("Ready to harvest!"); }
+            }
+        },
+        draw() {
+            ctx.fillStyle = '#6b4226'; ctx.fillRect(this.x, this.y, this.w, this.h);
+            ctx.fillStyle = '#3e2723'; ctx.fillRect(this.x+5, this.y+5, this.w-10, this.h-10);
+            
+            if (potData.state === 'planted') {
+                ctx.fillStyle = '#5c4033'; ctx.fillRect(this.x+18, this.y+20, 10, 10);
+                ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(this.x+23, this.y+10, 4, 0, Math.PI*2); ctx.fill();
+            } else if (potData.state === 'growing' || potData.state === 'ready') {
+                let p = potData.progress / 100; 
+                ctx.fillStyle = potData.state === 'ready' ? '#4CAF50' : '#8BC34A';
+                
+                // Detailed Plant Branching
+                ctx.fillRect(this.x + 18, this.y + 40 - (30 * p), 9, 30 * p); // Stem
+                if (p > 0.5) {
+                    ctx.fillRect(this.x + 9, this.y + 25, 9, 9);  // Branch 1
+                    ctx.fillRect(this.x + 27, this.y + 15, 9, 9); // Branch 2
+                }
+            }
+        }
+    };
+
+    const rvDoor = { x: rv.x + 85, y: rv.y + rv.h - 20, w: 50, h: 20,
+        get action() { return doorData.customerWaiting ? "Sell 10g ($150)" : "Door (No one)"; },
+        interact() {
+            if (doorData.customerWaiting) {
+                if (gameState.stash >= 10) {
+                    gameState.stash -= 10; gameState.cash += 150; doorData.customerWaiting = false; 
+                    setDialogue("Sold 10g for $150!"); updateUI(); advanceMission(6);
+                } else setDialogue("Need 10g product.");
+            }
+        },
+        draw() {
+            if (doorData.customerWaiting) { ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(this.x + 25, this.y + 35, 8, 0, Math.PI * 2); ctx.fill(); }
+        }
+    };
+
+    function getInteractables() {
+        let list = [bed, sink, pot, rvDoor];
+
+        houseDefs.forEach((h, i) => {
+            list.push({
+                x: h.dX, y: h.dY, w: 20, h: 30,
+                get action() { return housesData[i].state === 'ready' ? "Knock on Door" : "No Answer"; },
+                interact() {
+                    if (housesData[i].state !== 'ready') return;
+                    let r = Math.random();
+                    if (r < 0.25) { setDialogue("No one answered."); }
+                    else if (r < 0.55) { setDialogue("Not interested! Get lost."); }
+                    else {
+                        if (gameState.stash >= 10) { gameState.stash -= 10; gameState.cash += 150; setDialogue("Sold 10g for $150. Nice."); updateUI(); }
+                        else { setDialogue("They want 10g, but you don't have enough product."); }
+                    }
+                    housesData[i].state = 'cooldown'; housesData[i].timer = 8 * 60;
+                }
+            });
+        });
+
+        droppedItems.forEach((di, index) => {
+            list.push({
+                x: di.x - 10, y: di.y - 10, w: 20, h: 20,
+                action: `Pick up ${di.amount} ${di.type}`,
+                interact() {
+                    if(di.type === 'seeds') gameState.seeds += di.amount;
+                    if(di.type === 'product') gameState.stash += di.amount;
+                    droppedItems.splice(index, 1);
+                    setDialogue(`Picked up ${di.amount} ${di.type}.`);
+                    updateUI();
+                }
+            });
+        });
+
+        return list;
+    }
+
+    let closestObj = null;
+
+    function checkCollision(nx, ny, size) {
+        let pL = nx - size, pR = nx + size, pT = ny - size, pB = ny + size;
+        if (pL < 0 || pR > WORLD_W || pT < 0 || pB > WORLD_H) return true;
+        for (let b of solids) {
+            if (pR > b.x && pL < b.x + b.w && pB > b.y && pT < b.y + b.h) return true;
+        }
+        return false;
+    }
+
+    // --- GAME LOOP ---
+    let lastTime = performance.now();
+
+    function updateLogic(dt) {
+        if(isPhoneOpen || isInvOpen) return;
+
+        gameState.time += gameState.timeSpeed * dt;
+        if (gameState.time >= 24 * 60) { gameState.day++; gameState.time = 0; }
+        
+        let hrs = Math.floor(gameState.time / 60).toString().padStart(2, '0');
+        let mins = Math.floor(gameState.time % 60).toString().padStart(2, '0');
+        ui.time.innerText = `${hrs}:${mins}`; ui.phoneClock.innerText = `${hrs}:${mins}`;
+        ui.day.innerText = gameState.day;
+
+        pot.update(dt);
+
+        housesData.forEach(h => {
+            if (h.state === 'cooldown') {
+                h.timer -= gameState.timeSpeed * dt;
+                if (h.timer <= 0) h.state = 'ready';
+            }
+        });
+
+        if (keys.p && !pHandled) { togglePhone(); pHandled = true; }
+        if (!keys.p) pHandled = false;
+        if (keys.i && !iHandled) { toggleInventory(); iHandled = true; }
+        if (!keys.i) iHandled = false;
+
+        if (gameState.tutorialActive && missions[gameState.missionIndex] && gameState.missionIndex === 0) {
+            if (missions[0].check()) advanceMission(0);
+        }
+
+        let dx = 0, dy = 0;
+        if (keys.w) dy -= 1; if (keys.s) dy += 1;
+        if (keys.a) dx -= 1; if (keys.d) dx += 1;
+        if (dx === 0 && dy === 0) { dx = joystick.dx; dy = joystick.dy; } 
+        else { let l = Math.hypot(dx, dy); dx /= l; dy /= l; }
+
+        let nx = player.x + (dx * player.speed * dt);
+        let ny = player.y + (dy * player.speed * dt);
+
+        if (!checkCollision(nx, player.y, player.size)) player.x = nx;
+        if (!checkCollision(player.x, ny, player.size)) player.y = ny;
+
+        camera.x = Math.floor(player.x - canvas.width / 2);
+        camera.y = Math.floor(player.y - canvas.height / 2);
+        camera.x = Math.max(0, Math.min(camera.x, WORLD_W - canvas.width));
+        camera.y = Math.max(0, Math.min(camera.y, WORLD_H - canvas.height));
+
+        closestObj = null; let minDist = 40;
+        const currentInteractables = getInteractables();
+        for (let obj of currentInteractables) {
+            let cx = obj.x + obj.w / 2, cy = obj.y + obj.h / 2;
+            let dist = Math.hypot(player.x - cx, player.y - cy);
+            if (dist < minDist) { minDist = dist; closestObj = obj; }
+        }
+
+        let isInteracting = keys.e || actionPressed;
+        if (closestObj && isInteracting && !gameState.eHandled) { closestObj.interact(); gameState.eHandled = true; }
+        if (!isInteracting) gameState.eHandled = false;
+    }
+
+    function drawScene() {
+        ctx.fillStyle = '#1e2b17'; ctx.fillRect(0, 0, canvas.width, canvas.height); 
+        ctx.save(); ctx.translate(-camera.x, -camera.y);
+        ctx.fillStyle = '#2a3b22'; ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+
+        // Road logic
+        ctx.fillStyle = '#444'; ctx.fillRect(170, 0, 10, WORLD_H); 
+        ctx.fillStyle = '#333'; ctx.fillRect(180, 0, 100, WORLD_H); 
+        ctx.fillStyle = '#444'; ctx.fillRect(280, 0, 10, WORLD_H); 
+        ctx.fillStyle = '#e67e22';
+        for(let i=0; i<WORLD_H; i+=60) ctx.fillRect(228, i, 4, 30);
+
+        houseDefs.forEach(h => {
+            ctx.fillStyle = '#444'; ctx.fillRect(h.x + h.w, h.y + 40, 170 - (h.x + h.w), 30);
+            ctx.fillStyle = '#8d6e63'; ctx.fillRect(h.x, h.y, h.w, h.h);
+            ctx.strokeStyle = '#3e2723'; ctx.lineWidth = 4; ctx.strokeRect(h.x, h.y, h.w, h.h);
+            ctx.fillStyle = '#5d4037'; ctx.fillRect(h.x+10, h.y+10, h.w-20, h.h-20);
+            ctx.fillStyle = '#212121'; ctx.fillRect(h.dX, h.dY, 10, 20);
+        });
+
+        // RV Floor
+        ctx.fillStyle = '#c5b59a'; ctx.fillRect(rv.x, rv.y, rv.w, rv.h);
+        ctx.strokeStyle = '#b0a086'; ctx.lineWidth = 2;
+        for(let i = rv.x + 40; i < rv.x + rv.w; i += 40) { ctx.beginPath(); ctx.moveTo(i, rv.y); ctx.lineTo(i, rv.y + rv.h); ctx.stroke(); }
+        ctx.strokeStyle = '#222'; ctx.lineWidth = 6;
+        
+        ctx.beginPath();
+        ctx.moveTo(rv.x, rv.y + rv.h); ctx.lineTo(rv.x, rv.y); ctx.lineTo(rv.x + rv.w, rv.y); ctx.lineTo(rv.x + rv.w, rv.y + rv.h);
+        ctx.lineTo(rv.x + 135, rv.y + rv.h); ctx.moveTo(rv.x + 85, rv.y + rv.h); ctx.lineTo(rv.x, rv.y + rv.h);
+        ctx.stroke();
+
+        droppedItems.forEach(di => {
+            ctx.fillStyle = di.type === 'product' ? '#4CAF50' : '#8B4513';
+            ctx.beginPath(); ctx.arc(di.x, di.y, 6, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#000'; ctx.lineWidth=1; ctx.stroke();
+        });
+
+        bed.draw(); sink.draw(); pot.draw(); rvDoor.draw();
+
+        // Player
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.arc(player.x, player.y + 10, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#3498db'; ctx.fillRect(player.x - 10, player.y - 8, 20, 16);
+        ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.arc(player.x, player.y - 12, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#8e44ad'; ctx.fillRect(player.x - 8, player.y - 10, 16, 8);
+
+        // Interaction Hover Prompt
+        if (closestObj && !isPhoneOpen && !isInvOpen) {
+            let textY = closestObj.y - 15;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; ctx.fillRect(closestObj.x + closestObj.w/2 - 70, textY - 12, 140, 20);
+            ctx.fillStyle = '#000'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(`[E] ${closestObj.action}`, closestObj.x + closestObj.w/2, textY - 1);
+        }
+        ctx.restore();
+
+        // Day/Night System
+        let hour = gameState.time / 60; let alpha = 0;
+        if (hour >= 20 || hour <= 6) alpha = 0.85; 
+        else if (hour > 18 && hour < 20) alpha = ((hour - 18) / 2) * 0.85; 
+        else if (hour > 6 && hour < 8) alpha = 0.85 - (((hour - 6) / 2) * 0.85);
+
+        if (alpha > 0) {
+            let screenPlayerX = player.x - camera.x;
+            let screenPlayerY = player.y - camera.y;
+            let grad = ctx.createRadialGradient(screenPlayerX, screenPlayerY, 40, screenPlayerX, screenPlayerY, 180);
+            grad.addColorStop(0, `rgba(5, 5, 20, 0)`); grad.addColorStop(0.6, `rgba(5, 5, 20, ${alpha * 0.6})`); grad.addColorStop(1, `rgba(5, 5, 20, ${alpha})`); 
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    function gameLoop(time) {
+        if (!time) time = performance.now();
+        let dt = (time - lastTime) / 1000; lastTime = time;
+        if (dt > 0.1) dt = 0.1; 
+        updateLogic(dt); drawScene(); requestAnimationFrame(gameLoop);
+    }
+
+    // Initialize Game Intro
+    if (gameState.tutorialActive && missions[gameState.missionIndex]) { 
+        ui.mission.innerText = missions[gameState.missionIndex].text; 
+        setDialogue("Welcome to the RV. Let's get to work.");
+    } else {
+        setDialogue("Welcome back.");
+    }
+    
+    requestAnimationFrame(gameLoop);
+
+</script>
+</body>
+</html>
